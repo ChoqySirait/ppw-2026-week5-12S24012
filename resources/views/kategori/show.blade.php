@@ -1,51 +1,51 @@
 <x-layout>
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="card border-0 shadow-sm rounded-3">
-                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold text-del mb-0"><i class="bi bi-book-half me-2"></i>Detail Informasi Buku</h5>
-                    <span class="badge badge-del">{{ $buku->kategori->nama_kategori }}</span>
-                </div>
-                <div class="card-body p-4">
-                    <h4 class="fw-bold text-dark mb-3">{{ $buku->judul }}</h4>
-                    <div class="row mb-4">
-                        <div class="col-sm-6 mb-2">
-                            <small class="text-muted d-block">ISBN</small>
-                            <span class="font-monospace fw-semibold">{{ $buku->isbn }}</span>
-                        </div>
-                        <div class="col-sm-6 mb-2">
-                            <small class="text-muted d-block">Penulis</small>
-                            <span class="fw-semibold">{{ $buku->penulis }}</span>
-                        </div>
-                        <div class="col-sm-6 mb-2">
-                            <small class="text-muted d-block">Penerbit</small>
-                            <span class="fw-semibold">{{ $buku->penerbit }}</span>
-                        </div>
-                        <div class="col-sm-6 mb-2">
-                            <small class="text-muted d-block">Tahun Terbit</small>
-                            <span class="fw-semibold">{{ $buku->tahun_terbit }}</span>
-                        </div>
-                        <div class="col-sm-6 mb-2">
-                            <small class="text-muted d-block">Ketersediaan Stok</small>
-                            <span class="badge {{ $buku->stok > 0 ? 'bg-success' : 'bg-danger' }}">{{ $buku->stok }} eksemplar</span>
-                        </div>
-                    </div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-del mb-1">Kategori: {{ $kategori->nama_kategori }}</h3>
+            <span class="badge bg-secondary font-monospace">{{ $kategori->kode_kategori }}</span>
+        </div>
+        <a href="{{ route('kategori.index') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Kembali ke Kategori
+        </a>
+    </div>
 
-                    <h6 class="fw-bold text-dark">Sinopsis</h6>
-                    <div class="p-3 bg-light rounded-3 text-secondary border">
-                        {{ $buku->sinopsis ?? 'Tidak ada sinopsis yang dicantumkan untuk buku ini.' }}
-                    </div>
-
-                    <div class="mt-4 d-flex justify-content-end gap-2">
-                        <a href="{{ route('buku.index') }}" class="btn btn-secondary">
-                            <i class="bi bi-arrow-left me-1"></i> Kembali
-                        </a>
-                        <a href="{{ route('buku.edit', $buku) }}" class="btn btn-warning">
-                            <i class="bi bi-pencil me-1"></i> Edit Buku
-                        </a>
-                    </div>
-                </div>
+    <div class="card border-0 shadow-sm rounded-3">
+        <div class="card-header bg-white py-3 border-bottom">
+            <h6 class="fw-bold mb-0">Koleksi Buku Dalam Kategori Ini</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light border-bottom">
+                        <tr>
+                            <th class="ps-4">No</th>
+                            <th>ISBN</th>
+                            <th>Judul</th>
+                            <th>Penulis</th>
+                            <th>Penerbit</th>
+                            <th>Tahun</th>
+                            <th>Stok</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($kategori->bukus as $index => $buku)
+                            <tr>
+                                <td class="ps-4 text-muted">{{ $index + 1 }}</td>
+                                <td><span class="badge bg-secondary font-monospace">{{ $buku->isbn }}</span></td>
+                                <td class="fw-semibold">{{ $buku->judul }}</td>
+                                <td>{{ $buku->penulis }}</td>
+                                <td>{{ $buku->penerbit }}</td>
+                                <td>{{ $buku->tahun_terbit }}</td>
+                                <td><span class="badge bg-success-subtle text-success border border-success-subtle">{{ $buku->stok }} eks</span></td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">Belum ada buku terdaftar di kategori ini.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-</x-layout> 
+</x-layout>
