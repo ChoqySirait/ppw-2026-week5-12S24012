@@ -78,6 +78,55 @@ Pencatatan kueri dilakukan melalui `DB::listen` pada `AppServiceProvider::boot()
 
 ---
 
+### Tampilan Web Desktop
+
+<img width="959" height="536" alt="image" src="https://github.com/user-attachments/assets/b1f0adb5-978e-4ff4-afa9-9526a12cd537" />
+
+<img width="959" height="532" alt="image" src="https://github.com/user-attachments/assets/db0301db-8281-4034-ba55-8c511e6d7fc2" />
+
+
+<img width="959" height="532" alt="image" src="https://github.com/user-attachments/assets/4fc990c4-e671-4c99-81fc-3a9e658d629a" />
+
+<img width="959" height="533" alt="image" src="https://github.com/user-attachments/assets/09b839c4-4814-4ce3-ab3b-6ff8fc28de2e" />
+
+### Tampilan Mobile 
+
+<img width="213" height="467" alt="image" src="https://github.com/user-attachments/assets/6fff8f0b-1477-4519-86a1-96c00de999dc" />
+
+<img width="212" height="465" alt="image" src="https://github.com/user-attachments/assets/f1b45306-af34-4d64-bcf3-68775473b27a" />
+
+<img width="215" height="464" alt="image" src="https://github.com/user-attachments/assets/7ef8aca3-6eee-4c6a-bac3-43cc246e388f" />
+
+<img width="215" height="465" alt="image" src="https://github.com/user-attachments/assets/02b1608b-cf6e-4dcd-ba5a-6b7bd1e082e1" />
+
+---
+## 📐 Diagram Relasi Basis Data (ERD)
+
+```mermaid
+erDiagram
+    KATEGORIS ||--o{ BUKUS : "memiliki (1:N)"
+    KATEGORIS {
+        bigint id PK
+        string kode_kategori UK
+        string nama_kategori
+        timestamp created_at
+        timestamp updated_at
+    }
+    BUKUS {
+        bigint id PK
+        string isbn UK
+        string judul
+        string penulis
+        string penerbit
+        int tahun_terbit
+        bigint kategori_id FK
+        int stok
+        text sinopsis
+        timestamp created_at
+        timestamp updated_at
+    }
+
+```
 ---
 
 ## 🌐 Daftar Endpoint RESTful Routing
