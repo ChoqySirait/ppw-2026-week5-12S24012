@@ -73,5 +73,59 @@ Pencatatan kueri dilakukan melalui `DB::listen` pada `AppServiceProvider::boot()
 [2026-10-06 14:50:10] local.INFO: [SQL AUDIT] (0.85 ms) select count(*) as aggregate from "bukus"
 [2026-10-06 14:50:10] local.INFO: [SQL AUDIT] (0.42 ms) select * from "bukus" order by "created_at" desc limit 10 offset 0
 [2026-10-06 14:50:10] local.INFO: [SQL AUDIT] (0.31 ms) select * from "kategoris" where "kategoris"."id" in (1, 2, 3, 4, 5)
+```  
+> Verifikasi Audit: Menampilkan 10 buku hanya membutuhkan tepat 2 kueri data (1 kueri tabel buku dan 1 kueri relasi kategori menggunakan klausa IN (...)), membuktikan masalah $N+1$ kueri berhasil dihilangkan sepenuhnya.
+
+---
+
+---
+
+## 🌐 Daftar Endpoint RESTful Routing
+
+| Method HTTP | URL Endpoint | Controller Action | Deskripsi Fungsi |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/` | Redirect | Otomatis mengarahkan ke halaman katalog buku (`buku.index`) |
+| `GET` | `/buku` | `BukuController@index` | Menampilkan katalog buku dengan Eager Loading & Pagination |
+| `GET` | `/buku/create` | `BukuController@create` | Menampilkan form tambah buku baru |
+| `POST` | `/buku` | `BukuController@store` | Menyimpan buku baru dengan validasi server-side |
+| `GET` | `/buku/{buku}` | `BukuController@show` | Menampilkan rincian detail buku |
+| `GET` | `/buku/{buku}/edit` | `BukuController@edit` | Menampilkan form ubah data buku |
+| `PUT` | `/buku/{buku}` | `BukuController@update` | Memperbarui data buku dengan validasi server-side |
+| `DELETE` | `/buku/{buku}` | `BukuController@destroy` | Menghapus buku dari sistem perpustakaan |
+| `GET` | `/kategori` | `KategoriController@index` | Menampilkan daftar kategori beserta jumlah buku (`withCount`) |
+| `GET` | `/kategori/create` | `KategoriController@create` | Menampilkan form tambah kategori baru |
+| `POST` | `/kategori` | `KategoriController@store` | Menyimpan kategori baru ke basis data |
+| `GET` | `/kategori/{kategori}` | `KategoriController@show` | Menampilkan detail kategori dan daftar buku terkait |
+| `GET` | `/kategori/{kategori}/edit` | `KategoriController@edit` | Menampilkan form edit kategori |
+| `PUT` | `/kategori/{kategori}` | `KategoriController@update` | Memperbarui data kategori |
+| `DELETE` | `/kategori/{kategori}` | `KategoriController@destroy` | Menghapus kategori beserta buku di dalamnya (Cascade) |
+
+---
+
+## 🚀 Panduan Instalasi Lokal
+
+1. **Klon Repositori**:
+   ```bash
+   git clone [https://github.com/ChoqySirait/ppw-2026-week5-12S24012.git](https://github.com/ChoqySirait/ppw-2026-week5-12S24012.git)
+   cd ppw-2026-week5-12S24012
+
+2. Instal Dependensi:
+   ```bash
+   composer install 
+   
+3. Konfigurasi Lingkungan (.env):
+   ```bash 
+   cp .env.example .env 
+   php artisan key:generate
+
+4. Eksekusi Migrasi & Data Mock Seeder:
+   ```bash 
+   php artisan migrate:fresh --seed 
+   
+6. Jalankan Server Lokal:
+   ```bash
+    php artisan serve 
+> Akses antarmuka melalui peramban pada URL: http://127.0.0.1:8000
+
 
 
