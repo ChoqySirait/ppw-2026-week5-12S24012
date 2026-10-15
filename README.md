@@ -9,7 +9,7 @@ Proyek ini dibangun untuk memenuhi penugasan mandiri **Praktikum Minggu 06** Mat
 
 - **Nama Lengkap**: Choqy Pananda Sirait
 - **NIM**: 12S24012
-- **Program Studi**: S1 Sistem Informasi
+- **Program Studi**: Sistem Informasi
 - **Kelas**: 13SI1
 - **Dosen Pengampu**: Chandro Pardede, S.Kom., M.Sc.
 - **Tahun Akademik**: Semester Ganjil 2026/2027
@@ -17,6 +17,49 @@ Proyek ini dibangun untuk memenuhi penugasan mandiri **Praktikum Minggu 06** Mat
 - **Cabang Git**: `week6-db-session`
 
 ---
+## Tampilan Desktop
+
+#### Login Admin Perpustakaan 
+<img width="1895" height="903" alt="image" src="https://github.com/user-attachments/assets/a183b441-cd6a-4ffa-a6f6-01d8413bd959" />
+
+#### Katalog Buku ( Admin Perpustakaan )
+<img width="1896" height="904" alt="image" src="https://github.com/user-attachments/assets/72744a34-5ee5-4768-86e7-f1e8e4f47068" />
+
+<img width="1894" height="906" alt="image" src="https://github.com/user-attachments/assets/a2998dcd-8b55-4217-846a-f12bbb5d5178" />
+
+
+<img width="1898" height="908" alt="image" src="https://github.com/user-attachments/assets/4cfdd00f-65af-490e-9c38-941ccb802876" />
+
+#### Kategori ( Admin Perpustakaan )
+<img width="1916" height="900" alt="image" src="https://github.com/user-attachments/assets/7bc71417-d9ec-4957-a0dc-b8409d810785" />
+
+<img width="1919" height="903" alt="image" src="https://github.com/user-attachments/assets/af637aeb-6b79-4aed-af99-b1a81e31bf38" />
+
+#### Siklus Peminjaman ( Admin Perpustakaan )
+<img width="1918" height="904" alt="image" src="https://github.com/user-attachments/assets/de972026-8a85-41c3-b90c-995a67129590" />
+
+<img width="1919" height="906" alt="image" src="https://github.com/user-attachments/assets/0cd8690e-2e79-4e41-8694-3a712b326213" />
+
+<img width="1919" height="903" alt="image" src="https://github.com/user-attachments/assets/6367a4f4-4e31-4c05-bafa-4274a25de371" />
+
+#### Tampilan Mode Tamu/Mahasiswa
+<img width="1900" height="903" alt="image" src="https://github.com/user-attachments/assets/82b4ad95-4e86-4f78-99b7-be3baec41886" />
+
+<img width="1919" height="905" alt="image" src="https://github.com/user-attachments/assets/58142a17-74a9-4305-b02a-414c9f072046" />
+
+--- 
+
+## Tampilan Mobile 
+#### Tamu/Mahasiswa
+<img width="364" height="793" alt="image" src="https://github.com/user-attachments/assets/02d8df0b-93df-4544-9247-a7c5d0663f85" />
+<img width="368" height="792" alt="image" src="https://github.com/user-attachments/assets/e0e11c34-84df-415b-8f12-e8d7a9ec581e" />
+
+#### Login Admin Perpustakaan dan Fiturnya
+<img width="368" height="791" alt="image" src="https://github.com/user-attachments/assets/c2cfefc1-b93b-4634-9374-31aebd3d0b7b" />
+<img width="365" height="795" alt="image" src="https://github.com/user-attachments/assets/8fd7b4c7-68c9-4e4e-addf-35d5831ec801" />
+<img width="366" height="798" alt="image" src="https://github.com/user-attachments/assets/3546b69a-39c5-4c38-9efd-59248d59f883" />
+<img width="366" height="795" alt="image" src="https://github.com/user-attachments/assets/d820e109-d9df-4198-9294-35acf1837010" />
+<img width="366" height="794" alt="image" src="https://github.com/user-attachments/assets/0f01573a-1003-4f9c-919e-7ca2d4784dbf" />
 
 ## 🔐 Kredensial Akun Pengujian Sistem
 
