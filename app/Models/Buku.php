@@ -5,14 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Buku extends Model
 {
     use HasFactory;
 
-    /**
-     * Atribut yang boleh diisi secara mass assignment.
-     */
+    protected $table = 'bukus';
+
     protected $fillable = [
         'isbn',
         'judul',
@@ -25,10 +25,18 @@ class Buku extends Model
     ];
 
     /**
-     * Hubungan Inverse One-to-Many: Setiap buku tergolong dalam satu kategori.
+     * Relasi: Buku menginduk pada satu Kategori.
      */
     public function kategori(): BelongsTo
     {
-        return $this->belongsTo(Kategori::class);
+        return $this->belongsTo(Kategori::class, 'kategori_id');
+    }
+
+    /**
+     * Relasi: Satu Buku dapat memiliki banyak riwayat transaksi peminjaman.
+     */
+    public function peminjamans(): HasMany
+    {
+        return $this->hasMany(Peminjaman::class, 'buku_id');
     }
 }
