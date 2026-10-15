@@ -9,11 +9,9 @@ use Illuminate\Support\Facades\Route;
 // 1. Rute Pengalihan Domain Akar
 Route::get('/', fn() => redirect()->route('buku.index'));
 
-// 2. Rute Publik (Mode Tamu / Mahasiswa - Hanya Read-Only)
+// 2. Rute Publik (Katalog Read-Only)
 Route::get('buku', [BukuController::class, 'index'])->name('buku.index');
-Route::get('buku/{buku}', [BukuController::class, 'show'])->name('buku.show');
 Route::get('kategori', [KategoriController::class, 'index'])->name('kategori.index');
-Route::get('kategori/{kategori}', [KategoriController::class, 'show'])->name('kategori.show');
 
 // 3. Rute Tamu (Autentikasi Masuk Pustakawan)
 Route::middleware('guest')->group(function () {
@@ -26,14 +24,14 @@ Route::middleware('auth')->group(function () {
     // Sesi Keluar
     Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
-    // Mutasi Data Koleksi Buku
+    // Mutasi Data Koleksi Buku (Daftarkan /create SEBELUM wildcard {buku})
     Route::get('buku/create', [BukuController::class, 'create'])->name('buku.create');
     Route::post('buku', [BukuController::class, 'store'])->name('buku.store');
     Route::get('buku/{buku}/edit', [BukuController::class, 'edit'])->name('buku.edit');
     Route::put('buku/{buku}', [BukuController::class, 'update'])->name('buku.update');
     Route::delete('buku/{buku}', [BukuController::class, 'destroy'])->name('buku.destroy');
 
-    // Mutasi Data Master Kategori
+    // Mutasi Data Master Kategori (Daftarkan /create SEBELUM wildcard {kategori})
     Route::get('kategori/create', [KategoriController::class, 'create'])->name('kategori.create');
     Route::post('kategori', [KategoriController::class, 'store'])->name('kategori.store');
     Route::get('kategori/{kategori}/edit', [KategoriController::class, 'edit'])->name('kategori.edit');
@@ -45,4 +43,8 @@ Route::middleware('auth')->group(function () {
     Route::get('peminjaman/create', [PeminjamanController::class, 'create'])->name('peminjaman.create');
     Route::post('peminjaman', [PeminjamanController::class, 'store'])->name('peminjaman.store');
     Route::post('peminjaman/{id}/kembalikan', [PeminjamanController::class, 'kembalikan'])->name('peminjaman.kembalikan');
-}); 
+});
+
+// 5. Rute Wildcard Detail Diletakkan di Paling Bawah agar Tidak Menabrak /create
+Route::get('buku/{buku}', [BukuController::class, 'show'])->name('buku.show');
+Route::get('kategori/{kategori}', [KategoriController::class, 'show'])->name('kategori.show');
