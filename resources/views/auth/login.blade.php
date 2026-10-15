@@ -14,7 +14,7 @@
                     <form action="{{ route('login.post') }}" method="POST">
                         @csrf
 
-                        <!-- Alamat Surel Pustakawan -->
+                        <!-- Alamat Surel -->
                         <div class="mb-3">
                             <label for="email" class="form-label fw-semibold">Alamat Surel <span class="text-danger">*</span></label>
                             <div class="input-group">
@@ -67,4 +67,4 @@
             </div>
         </div>
     </div>
-</x-layout>
+</x-layout> 

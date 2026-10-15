@@ -15,7 +15,7 @@ class AuthController extends Controller
      */
     public function showLoginForm(Request $request): View
     {
-        // Membaca cookie email terakhir jika pernah login sebelumnya
+        // Membaca cookie surel terakhir jika tersimpan pada peramban
         $savedEmail = $request->cookie('del_last_librarian_email');
 
         return view('auth.login', compact('savedEmail'));
@@ -35,7 +35,7 @@ class AuthController extends Controller
             // 1. WAJIB: Regenerasi ID Sesi untuk memitigasi serangan Session Fixation
             $request->session()->regenerate();
 
-            // 2. Simpan timestamp login pustakawan ke server session state
+            // 2. Simpan waktu login pustakawan ke server session state
             session([
                 'login_timestamp' => now()->format('d M Y, H:i:s') . ' WIB',
             ]);
@@ -58,10 +58,10 @@ class AuthController extends Controller
     {
         Auth::logout();
 
-        // Bersihkan seluruh data sesi dan hapus ID sesi dari server
+        // Bersihkan seluruh data sesi dan musnahkan Session ID lama dari server
         $request->session()->invalidate();
 
-        // Buat ulang token CSRF agar sesi peramban kembali steril
+        // Terbitkan ulang token CSRF agar sesi peramban kembali steril
         $request->session()->regenerateToken();
 
         return redirect()->route('login')
