@@ -40,12 +40,13 @@ class PeminjamanController extends Controller
 
     /**
      * Menampilkan formulir peminjaman untuk buku tertentu.
+     * Mengambil seluruh koleksi buku agar kasus uji batas (stok 0) dapat didemonstrasikan.
      */
     public function create(Request $request): View
     {
         $bukuId = $request->query('buku_id');
         $bukuDipilih = $bukuId ? Buku::find($bukuId) : null;
-        $bukus = Buku::where('stok', '>', 0)->orderBy('judul')->get();
+        $bukus = Buku::orderBy('judul')->get();
 
         return view('peminjaman.create', compact('bukus', 'bukuDipilih'));
     }
