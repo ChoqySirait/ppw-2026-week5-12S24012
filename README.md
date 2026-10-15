@@ -8,7 +8,7 @@ Proyek ini dibangun untuk memenuhi penugasan mandiri **Praktikum Minggu 05** Mat
 ## 👤 Identitas Pengembang
 * **Nama Lengkap**    : Choqy Pananda Sirait
 * **NIM**             : 12S24012
-* **Program Studi**   : Sistem Informasi
+* **Program Studi**   : S1 Sistem Informasi
 * **Kelas**           : 13SI1
 * **Dosen Pengampu**  : Chandro Pardede, S.Kom., M.Sc.
 * **Tahun Akademik**  : Semester Ganjil 2026/2027
