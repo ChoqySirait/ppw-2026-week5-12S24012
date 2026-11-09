@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BukuController;
 use App\Http\Controllers\KategoriController;
 use App\Http\Controllers\PeminjamanController;
+use App\Http\Controllers\Soap\LibrarySoapController;
 use Illuminate\Support\Facades\Route;
 
 // 1. Rute Pengalihan Domain Akar
@@ -12,6 +13,10 @@ Route::get('/', fn() => redirect()->route('buku.index'));
 // 2. Rute Publik (Katalog Read-Only)
 Route::get('buku', [BukuController::class, 'index'])->name('buku.index');
 Route::get('kategori', [KategoriController::class, 'index'])->name('kategori.index');
+
+// 3. Rute Layanan SOAP SIPUS-Del
+Route::get('soap/sipus.wsdl', [LibrarySoapController::class, 'wsdl'])->name('soap.wsdl');
+Route::post('soap/sipus', [LibrarySoapController::class, 'handle'])->name('soap.handle');
 
 // 3. Rute Tamu (Autentikasi Masuk Pustakawan)
 Route::middleware('guest')->group(function () {
