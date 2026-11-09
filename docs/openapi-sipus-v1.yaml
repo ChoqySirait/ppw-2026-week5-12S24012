@@ -1,0 +1,1084 @@
+openapi: 3.0.3
+info:
+  title: SIPUS-Del REST & SOAP Web API
+  description: >
+    Dokumentasi resmi Web API SIPUS-Del (Sistem Informasi Perpustakaan Institut Teknologi Del).
+    Mendukung protokol RESTful Web API v1 dengan arsitektur HATEOAS, RFC 7807 Problem Details,
+    stateless Bearer Token autentikasi berbasis Laravel Sanctum, transaksi peminjaman ACID berbasis
+    concurrency locking (lockForUpdate), integrasi metadata eksternal OpenLibrary, serta penyedia
+    kontrak layanan SOAP WSDL untuk pengecekan bebas pustaka.
+  version: 1.0.0
+  contact:
+    name: Tim Pengembang SIPUS-Del
+    email: perpustakaan@del.ac.id
+servers:
+  - url: http://localhost:8000
+    description: Lingkungan Pengembangan Lokal (Local Development Server)
+
+tags:
+  - name: SOAP Provider
+    description: Layanan SOAP Clearance Check dan WSDL Contract
+  - name: Autentikasi
+    description: Endpoint autentikasi pustakawan dan manajemen Bearer Token Sanctum
+  - name: Katalog Buku
+    description: Manajemen koleksi buku perpustakaan dengan filter, pagination, dan HATEOAS
+  - name: Sirkulasi Peminjaman
+    description: Sirkulasi peminjaman dan pengembalian buku berbasis transaksi ACID
+  - name: Layanan Eksternal
+    description: Konsumsi REST API pihak ketiga (OpenLibrary) untuk sinkronisasi metadata
+
+paths:
+  /soap/sipus.wsdl:
+    get:
+      tags:
+        - SOAP Provider
+      summary: Mendapatkan dokumen kontrak WSDL
+      description: Menyediakan kontrak XML WSDL untuk operasi CheckClearanceStatus pada layanan SOAP SIPUS-Del.
+      responses:
+        '200':
+          description: Dokumen kontrak WSDL berhasil diambil.
+          content:
+            text/xml:
+              schema:
+                type: string
+                example: |
+                  <?xml version="1.0" encoding="UTF-8"?>
+                  <definitions name="LibraryService" targetNamespace="http://sipus.del.ac.id/soap" ...>
+                    ...
+                  </definitions>
+
+  /soap/sipus:
+    post:
+      tags:
+        - SOAP Provider
+      summary: Eksekusi operasi SOAP CheckClearanceStatus
+      description: Menerima SOAP XML Envelope yang memuat elemen nim_peminjam untuk memeriksa status bebas pustaka.
+      requestBody:
+        required: true
+        content:
+          text/xml:
+            schema:
+              type: string
+              example: |
+                <?xml version="1.0" encoding="UTF-8"?>
+                <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sip="http://sipus.del.ac.id/soap">
+                    <soapenv:Header/>
+                    <soapenv:Body>
+                        <sip:CheckClearanceStatusRequest>
+                            <sip:nim_peminjam>12S24012</sip:nim_peminjam>
+                        </sip:CheckClearanceStatusRequest>
+                    </soapenv:Body>
+                </soapenv:Envelope>
+      responses:
+        '200':
+          description: SOAP Envelope respons berisi jumlah pinjaman aktif dan status bebas pustaka.
+          content:
+            text/xml:
+              schema:
+                type: string
+                example: |
+                  <?xml version="1.0" encoding="UTF-8"?>
+                  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="http://sipus.del.ac.id/soap">
+                      <soapenv:Body>
+                          <tns:CheckClearanceStatusResponse>
+                              <tns:active_loans>0</tns:active_loans>
+                              <tns:is_cleared>true</tns:is_cleared>
+                          </tns:CheckClearanceStatusResponse>
+                      </soapenv:Body>
+                  </soapenv:Envelope>
+        '400':
+          description: SOAP Fault apabila XML malformed, NIM tidak ditemukan, atau operasi tidak dikenali.
+          content:
+            text/xml:
+              schema:
+                type: string
+                example: |
+                  <?xml version="1.0" encoding="UTF-8"?>
+                  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+                      <soapenv:Body>
+                          <soapenv:Fault>
+                              <faultcode>soapenv:Client</faultcode>
+                              <faultstring>Elemen nim_peminjam tidak ditemukan.</faultstring>
+                          </soapenv:Fault>
+                      </soapenv:Body>
+                  </soapenv:Envelope>
+
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Autentikasi
+      summary: Login pustakawan dan penerbitan Bearer Token
+      description: Memvalidasi kredensial email dan password pustakawan, serta menerbitkan Sanctum plainTextToken.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+      responses:
+        '200':
+          description: Autentikasi berhasil dan token diterbitkan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Kredensial tidak valid (email atau password salah).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Validasi input gagal.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/auth/me:
+    get:
+      tags:
+        - Autentikasi
+      summary: Mendapatkan profil data pustakawan yang terautentikasi
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profil pustakawan berhasil diambil.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          description: Bearer Token tidak disertakan atau sudah tidak valid.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/auth/logout:
+    post:
+      tags:
+        - Autentikasi
+      summary: Mencabut Bearer Token aktif (Logout)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Token berhasil dicabut secara permanen.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Token berhasil dicabut. Logout berhasil.
+                  data:
+                    type: null
+                    example: null
+        '401':
+          description: Tidak terautentikasi.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/bukus:
+    get:
+      tags:
+        - Katalog Buku
+      summary: Mendapatkan daftar katalog buku terpaginasi
+      parameters:
+        - name: search
+          in: query
+          description: Pencarian kata kunci pada judul, penulis, atau ISBN
+          schema:
+            type: string
+        - name: kategori_id
+          in: query
+          description: Filter berdasarkan ID kategori
+          schema:
+            type: integer
+        - name: tersedia
+          in: query
+          description: Nilai 1 untuk hanya menampilkan buku dengan stok > 0
+          schema:
+            type: integer
+            enum: [0, 1]
+        - name: sort
+          in: query
+          description: Kolom pengurutan (id, judul, penulis, penerbit, tahun_terbit, stok, created_at)
+          schema:
+            type: string
+            example: judul
+        - name: direction
+          in: query
+          description: Arah pengurutan
+          schema:
+            type: string
+            enum: [asc, desc]
+        - name: per_page
+          in: query
+          description: Jumlah data per halaman (1 sampai 100)
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Daftar katalog buku terpaginasi dengan tautan HATEOAS.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BukuCollectionResponse'
+
+    post:
+      tags:
+        - Katalog Buku
+      summary: Menambahkan koleksi buku baru
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BukuInput'
+      responses:
+        '201':
+          description: Buku berhasil dibuat.
+          headers:
+            Location:
+              description: URL detail buku yang baru dibuat
+              schema:
+                type: string
+                example: http://localhost:8000/api/v1/bukus/15
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BukuSingleResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Kesalahan validasi (misal ISBN duplikat atau field wajib kosong).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/bukus/{id}:
+    get:
+      tags:
+        - Katalog Buku
+      summary: Mendapatkan detail satu buku
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID unik buku
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detail buku berhasil diambil.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BukuSingleResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Katalog Buku
+      summary: Memperbarui seluruh representasi buku (PUT - Full Replacement)
+      description: Mengharuskan seluruh atribut wajib untuk penggantian representasi penuh.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BukuInput'
+      responses:
+        '200':
+          description: Buku berhasil diperbarui secara penuh.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BukuSingleResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+    patch:
+      tags:
+        - Katalog Buku
+      summary: Memperbarui representasi buku secara parsial (PATCH - Partial Update)
+      description: Hanya memperbarui field yang dikirimkan; field lain tetap tidak berubah.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BukuPatchInput'
+      responses:
+        '200':
+          description: Buku berhasil diperbarui secara parsial.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BukuSingleResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+    delete:
+      tags:
+        - Katalog Buku
+      summary: Menghapus buku dari katalog
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Buku berhasil dihapus tanpa konten tubuh respons.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Konflik penghapusan karena buku masih memiliki peminjaman aktif.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/bukus/{id}/referensi-eksternal:
+    get:
+      tags:
+        - Layanan Eksternal
+      summary: Mengambil metadata referensi buku dari OpenLibrary API
+      description: Menggunakan nomor ISBN buku untuk mengambil metadata eksternal (jumlah halaman, penerbit, cover, url) secara aman dengan batas timeout 8 detik.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Hasil sinkronisasi metadata eksternal (synced, not_found, timeout, upstream_error).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalReferenceResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/peminjamans:
+    get:
+      tags:
+        - Sirkulasi Peminjaman
+      summary: Mendapatkan riwayat sirkulasi peminjaman
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filter status peminjaman (dipinjam / dikembalikan)
+          schema:
+            type: string
+            enum: [dipinjam, dikembalikan]
+        - name: nim
+          in: query
+          description: Filter berdasarkan NIM mahasiswa peminjam
+          schema:
+            type: string
+        - name: per_page
+          in: query
+          description: Jumlah data per halaman
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Riwayat peminjaman terpaginasi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeminjamanCollectionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Sirkulasi Peminjaman
+      summary: Transaksi peminjaman buku berbasis ACID dan lockForUpdate
+      description: Meminjam satu buku secara atomik dengan proteksi race condition locking pada baris buku.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PeminjamanInput'
+      responses:
+        '201':
+          description: Peminjaman berhasil dicatat dan stok buku didekremen.
+          headers:
+            Location:
+              description: URL transaksi peminjaman baru
+              schema:
+                type: string
+                example: http://localhost:8000/api/v1/peminjamans/42
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeminjamanSingleResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Buku tidak ditemukan.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Mahasiswa masih memiliki transaksi aktif untuk buku yang sama.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Stok buku habis atau validasi input tidak terpenuhi.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/peminjamans/{id}:
+    get:
+      tags:
+        - Sirkulasi Peminjaman
+      summary: Mendapatkan detail satu transaksi peminjaman
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detail peminjaman berhasil diambil.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeminjamanSingleResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/peminjamans/{id}/kembalikan:
+    patch:
+      tags:
+        - Sirkulasi Peminjaman
+      summary: Transaksi pengembalian buku berbasis ACID dan lockForUpdate
+      description: Mengembalikan buku secara atomik, mengubah status menjadi dikembalikan, dan memulihkan kuota stok tepat satu unit.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Buku berhasil dikembalikan dan stok dipulihkan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeminjamanSingleResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Transaksi peminjaman tidak ditemukan.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Transaksi ini sudah pernah dikembalikan sebelumnya (idempotency guard).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: SanctumToken
+      description: Masukkan Sanctum plainTextToken yang diperoleh dari /api/v1/auth/login.
+
+  responses:
+    Unauthorized:
+      description: Tidak memiliki otorisasi (Token tidak disertakan atau tidak valid).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    NotFound:
+      description: Data atau endpoint yang diminta tidak ditemukan.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    Unprocessable:
+      description: Data yang dikirimkan tidak memenuhi kriteria validasi.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+  schemas:
+    ProblemDetails:
+      type: object
+      description: Format pesan kesalahan standar RFC 7807 (Problem Details for HTTP APIs).
+      required:
+        - type
+        - title
+        - status
+        - detail
+        - instance
+      properties:
+        type:
+          type: string
+          example: https://tools.ietf.org/html/rfc7235#section-3.1
+        title:
+          type: string
+          example: Unauthorized
+        status:
+          type: integer
+          example: 401
+        detail:
+          type: string
+          example: Autentikasi Bearer Token diperlukan untuk mengakses sumber daya ini atau token tidak valid.
+        instance:
+          type: string
+          example: /api/v1/auth/me
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            isbn:
+              - 'Nomor ISBN sudah terdaftar.'
+
+    LoginInput:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: pustakawan@del.ac.id
+        password:
+          type: string
+          format: password
+          example: secret123
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Autentikasi pustakawan berhasil.
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              example: 1|zT5mG...plainTextToken
+            token_type:
+              type: string
+              example: Bearer
+            user:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  example: 1
+                name:
+                  type: string
+                  example: Pustakawan Del
+                email:
+                  type: string
+                  example: pustakawan@del.ac.id
+
+    MeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Data profil pustakawan berhasil diambil.
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 1
+            name:
+              type: string
+              example: Pustakawan Del
+            email:
+              type: string
+              example: pustakawan@del.ac.id
+            email_verified_at:
+              type: string
+              nullable: true
+              example: null
+            created_at:
+              type: string
+              example: '2026-10-06T10:14:35.000000Z'
+
+    BukuInput:
+      type: object
+      required:
+        - isbn
+        - judul
+        - penulis
+        - penerbit
+        - tahun_terbit
+        - kategori_id
+        - stok
+      properties:
+        isbn:
+          type: string
+          example: 978-602-03-8888-1
+        judul:
+          type: string
+          example: Rekayasa Perangkat Lunak Berorientasi Objek
+        penulis:
+          type: string
+          example: Ian Sommerville
+        penerbit:
+          type: string
+          example: Erlangga
+        tahun_terbit:
+          type: integer
+          example: 2024
+        kategori_id:
+          type: integer
+          example: 1
+        stok:
+          type: integer
+          minimum: 0
+          example: 5
+        sinopsis:
+          type: string
+          nullable: true
+          example: Panduan komprehensif analisis dan perancangan perangkat lunak modern.
+
+    BukuPatchInput:
+      type: object
+      properties:
+        isbn:
+          type: string
+        judul:
+          type: string
+        penulis:
+          type: string
+        penerbit:
+          type: string
+        tahun_terbit:
+          type: integer
+        kategori_id:
+          type: integer
+        stok:
+          type: integer
+          minimum: 0
+        sinopsis:
+          type: string
+          nullable: true
+
+    BukuResourceSchema:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        isbn:
+          type: string
+          example: 978-602-03-8888-1
+        judul:
+          type: string
+          example: Rekayasa Perangkat Lunak Berorientasi Objek
+        penulis:
+          type: string
+          example: Ian Sommerville
+        penerbit:
+          type: string
+          example: Erlangga
+        tahun_terbit:
+          type: integer
+          example: 2024
+        stok:
+          type: integer
+          example: 5
+        sinopsis:
+          type: string
+          nullable: true
+          example: Panduan komprehensif analisis dan perancangan perangkat lunak modern.
+        kategori_id:
+          type: integer
+          example: 1
+        kategori:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 1
+            kode_kategori:
+              type: string
+              example: TIK
+            nama_kategori:
+              type: string
+              example: Teknologi Informasi & Komputer
+        peminjamans_count:
+          type: integer
+          example: 3
+        _links:
+          type: object
+          properties:
+            self:
+              type: object
+              properties:
+                href:
+                  type: string
+                  example: http://localhost:8000/api/v1/bukus/1
+                method:
+                  type: string
+                  example: GET
+            referensi_eksternal:
+              type: object
+              properties:
+                href:
+                  type: string
+                  example: http://localhost:8000/api/v1/bukus/1/referensi-eksternal
+                method:
+                  type: string
+                  example: GET
+            pinjam_buku:
+              type: object
+              description: Hanya muncul jika stok > 0
+              properties:
+                href:
+                  type: string
+                  example: http://localhost:8000/api/v1/peminjamans
+                method:
+                  type: string
+                  example: POST
+
+    BukuSingleResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Detail informasi buku berhasil diambil.
+        data:
+          $ref: '#/components/schemas/BukuResourceSchema'
+
+    BukuCollectionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Data katalog buku berhasil diambil.
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BukuResourceSchema'
+        meta:
+          type: object
+          properties:
+            current_page:
+              type: integer
+              example: 1
+            per_page:
+              type: integer
+              example: 10
+            total:
+              type: integer
+              example: 25
+            last_page:
+              type: integer
+              example: 3
+        links:
+          type: object
+          properties:
+            first:
+              type: string
+              example: http://localhost:8000/api/v1/bukus?page=1
+            last:
+              type: string
+              example: http://localhost:8000/api/v1/bukus?page=3
+            prev:
+              type: string
+              nullable: true
+              example: null
+            next:
+              type: string
+              nullable: true
+              example: http://localhost:8000/api/v1/bukus?page=2
+
+    PeminjamanInput:
+      type: object
+      required:
+        - buku_id
+        - nim_peminjam
+        - nama_peminjam
+      properties:
+        buku_id:
+          type: integer
+          example: 1
+        nim_peminjam:
+          type: string
+          example: 12S24012
+        nama_peminjam:
+          type: string
+          example: Bona Siregar
+        durasi_hari:
+          type: integer
+          minimum: 1
+          maximum: 30
+          default: 7
+          example: 7
+
+    PeminjamanResourceSchema:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        kode_pinjam:
+          type: string
+          example: PJ-20261109-AB123
+        buku_id:
+          type: integer
+          example: 1
+        buku:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 1
+            isbn:
+              type: string
+              example: 978-602-03-8888-1
+            judul:
+              type: string
+              example: Rekayasa Perangkat Lunak Berorientasi Objek
+            stok:
+              type: integer
+              example: 4
+        nim_peminjam:
+          type: string
+          example: 12S24012
+        nama_peminjam:
+          type: string
+          example: Bona Siregar
+        tanggal_pinjam:
+          type: string
+          format: date
+          example: '2026-11-09'
+        tanggal_jatuh_tempo:
+          type: string
+          format: date
+          example: '2026-11-16'
+        tanggal_kembali:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        status:
+          type: string
+          enum: [dipinjam, dikembalikan]
+          example: dipinjam
+        _links:
+          type: object
+          properties:
+            self:
+              type: object
+              properties:
+                href:
+                  type: string
+                  example: http://localhost:8000/api/v1/peminjamans/1
+                method:
+                  type: string
+                  example: GET
+            kembalikan_buku:
+              type: object
+              description: Hanya muncul jika status masih dipinjam
+              properties:
+                href:
+                  type: string
+                  example: http://localhost:8000/api/v1/peminjamans/1/kembalikan
+                method:
+                  type: string
+                  example: PATCH
+
+    PeminjamanSingleResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Transaksi peminjaman buku berhasil diproses secara atomik.
+        data:
+          $ref: '#/components/schemas/PeminjamanResourceSchema'
+
+    PeminjamanCollectionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Data riwayat peminjaman berhasil diambil.
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PeminjamanResourceSchema'
+        meta:
+          type: object
+          properties:
+            current_page:
+              type: integer
+              example: 1
+            per_page:
+              type: integer
+              example: 10
+            total:
+              type: integer
+              example: 12
+            last_page:
+              type: integer
+              example: 2
+        links:
+          type: object
+          properties:
+            first:
+              type: string
+              example: http://localhost:8000/api/v1/peminjamans?page=1
+            last:
+              type: string
+              example: http://localhost:8000/api/v1/peminjamans?page=2
+
+    ExternalReferenceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Metadata eksternal berhasil diambil.
+        data:
+          type: object
+          properties:
+            buku_id:
+              type: integer
+              example: 1
+            isbn:
+              type: string
+              example: 978-0-13-235088-4
+            clean_isbn:
+              type: string
+              example: '9780132350884'
+            status_sinkronisasi:
+              type: string
+              enum: [synced, not_found, timeout, upstream_error, isbn_invalid]
+              example: synced
+            pesan:
+              type: string
+              example: Metadata eksternal berhasil disinkronkan dari OpenLibrary.
+            metadata:
+              type: object
+              nullable: true
+              properties:
+                judul:
+                  type: string
+                  example: Clean Code
+                subjudul:
+                  type: string
+                  nullable: true
+                  example: A Handbook of Agile Software Craftsmanship
+                jumlah_halaman:
+                  type: integer
+                  example: 464
+                penerbit:
+                  type: array
+                  items:
+                    type: string
+                  example: ['Prentice Hall PTR']
+                tanggal_terbit:
+                  type: string
+                  example: August 1, 2008
+                openlibrary_url:
+                  type: string
+                  example: https://openlibrary.org/isbn/9780132350884
