@@ -22,9 +22,10 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // Katalog Buku Publik
+    // Katalog Buku Publik & Integrasi OpenLibrary
     Route::get('bukus', [BukuApiController::class, 'index'])->name('api.v1.bukus.index');
     Route::get('bukus/{id}', [BukuApiController::class, 'show'])->name('api.v1.bukus.show');
+    Route::get('bukus/{id}/referensi-eksternal', [BukuApiController::class, 'referensiEksternal'])->name('api.v1.bukus.referensi-eksternal');
 
     // Mutasi Data Buku & Sirkulasi Peminjaman (Terproteksi Bearer Token Sanctum)
     Route::middleware('auth:sanctum')->group(function () {

@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\BukuResource;
 use App\Models\Buku;
 use App\Traits\ApiResponse;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Http;
+use Throwable;
 
 class BukuApiController extends Controller
 {
@@ -223,5 +226,108 @@ class BukuApiController extends Controller
         $buku->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * Mengambil metadata buku eksternal dari OpenLibrary API berdasarkan ISBN.
+     */
+    public function referensiEksternal(int $id): JsonResponse
+    {
+        $buku = Buku::find($id);
+
+        if (! $buku) {
+            abort(404, "Buku dengan ID {$id} tidak ditemukan.");
+        }
+
+        // Normalisasi format ISBN (hilangkan tanda hubung dan karakter non-alfanumerik)
+        $cleanIsbn = preg_replace('/[^0-9X]/i', '', $buku->isbn ?? '');
+
+        if (empty($cleanIsbn)) {
+            return $this->successResponse([
+                'buku_id' => $buku->id,
+                'isbn' => $buku->isbn,
+                'clean_isbn' => null,
+                'status_sinkronisasi' => 'isbn_invalid',
+                'pesan' => 'Format ISBN buku tidak valid untuk pencarian eksternal.',
+                'metadata' => null,
+            ], 'ISBN buku tidak valid.', 200);
+        }
+
+        try {
+            $response = Http::timeout(8)->get("https://openlibrary.org/isbn/{$cleanIsbn}.json");
+
+            if ($response->status() === 404) {
+                return $this->successResponse([
+                    'buku_id' => $buku->id,
+                    'isbn' => $buku->isbn,
+                    'clean_isbn' => $cleanIsbn,
+                    'status_sinkronisasi' => 'not_found',
+                    'pesan' => 'Metadata buku tidak ditemukan pada repositori OpenLibrary.',
+                    'metadata' => null,
+                ], 'Metadata eksternal tidak ditemukan.', 200);
+            }
+
+            if (! $response->successful()) {
+                return $this->successResponse([
+                    'buku_id' => $buku->id,
+                    'isbn' => $buku->isbn,
+                    'clean_isbn' => $cleanIsbn,
+                    'status_sinkronisasi' => 'upstream_error',
+                    'pesan' => 'Layanan OpenLibrary mengembalikan status error: '.$response->status(),
+                    'metadata' => null,
+                ], 'Layanan eksternal mengalami kendala sementara.', 200);
+            }
+
+            $data = $response->json();
+
+            if (! is_array($data)) {
+                return $this->successResponse([
+                    'buku_id' => $buku->id,
+                    'isbn' => $buku->isbn,
+                    'clean_isbn' => $cleanIsbn,
+                    'status_sinkronisasi' => 'invalid_response',
+                    'pesan' => 'Format respons dari OpenLibrary tidak sesuai spesifikasi.',
+                    'metadata' => null,
+                ], 'Format respons eksternal tidak valid.', 200);
+            }
+
+            $metadata = [
+                'judul' => $data['title'] ?? $buku->judul,
+                'subjudul' => $data['subtitle'] ?? null,
+                'jumlah_halaman' => $data['number_of_pages'] ?? null,
+                'penerbit' => $data['publishers'] ?? [],
+                'tanggal_terbit' => $data['publish_date'] ?? null,
+                'works_key' => $data['works'][0]['key'] ?? null,
+                'openlibrary_url' => "https://openlibrary.org/isbn/{$cleanIsbn}",
+                'covers' => $data['covers'] ?? [],
+            ];
+
+            return $this->successResponse([
+                'buku_id' => $buku->id,
+                'isbn' => $buku->isbn,
+                'clean_isbn' => $cleanIsbn,
+                'status_sinkronisasi' => 'synced',
+                'pesan' => 'Metadata eksternal berhasil disinkronkan dari OpenLibrary.',
+                'metadata' => $metadata,
+            ], 'Metadata eksternal berhasil diambil.');
+        } catch (ConnectionException $e) {
+            return $this->successResponse([
+                'buku_id' => $buku->id,
+                'isbn' => $buku->isbn,
+                'clean_isbn' => $cleanIsbn,
+                'status_sinkronisasi' => 'timeout',
+                'pesan' => 'Koneksi ke OpenLibrary melebihi batas waktu (timeout 8 detik).',
+                'metadata' => null,
+            ], 'Gagal terhubung ke layanan eksternal (timeout).', 200);
+        } catch (Throwable $e) {
+            return $this->successResponse([
+                'buku_id' => $buku->id,
+                'isbn' => $buku->isbn,
+                'clean_isbn' => $cleanIsbn,
+                'status_sinkronisasi' => 'failed',
+                'pesan' => 'Terjadi kesalahan sistem saat menghubungi OpenLibrary: '.$e->getMessage(),
+                'metadata' => null,
+            ], 'Pencarian metadata eksternal gagal diproses.', 200);
+        }
     }
 }
