@@ -1,7 +1,7 @@
 # SIPUS-Del (Tahap 3) — Sistem Informasi Perpustakaan Kampus Del
 > Implementasi Arsitektur Web Services Komprehensif: RESTful Web API v1, SOAP Clearance Provider (WSDL), Autentikasi Stateless Laravel Sanctum Bearer Token, Transaksi Konkurensi ACID (`lockForUpdate`), HATEOAS, RFC 7807 Problem Details, Spesifikasi OpenAPI 3.0, serta Konsumsi Layanan Eksternal OpenLibrary pada Laravel 11.x.
 
-Proyek ini dibangun untuk memenuhi penugasan mandiri **Praktikum Minggu 09** Mata Kuliah **Pemrograman & Pengujian Web (1253101)** di Institut Teknologi Del.
+Proyek ini dibangun untuk memenuhi penugasan mandiri **Praktikum Minggu 09** Mata Kuliah **Pemrograman & Pengujian Aplikasi Web (12S3101)** di Institut Teknologi Del.
 
 ---
 
@@ -12,7 +12,7 @@ Proyek ini dibangun untuk memenuhi penugasan mandiri **Praktikum Minggu 09** Mat
 - **Program Studi**: Sarjana Sistem Informasi
 - **Kelas**: 13SI1
 - **Dosen Pengampu**: Chandro Pardede, S.Kom., M.Sc.
-- **Tahun Akademik**: Semester Ganjil 2026/2027
+- **Tahun Akademik**: Semester Ganjil 2026/2027 *(Catatan: Modul mencantumkan Semester Genap 2026/2027 pada halaman pembuka, silakan konfirmasi jadwal definitif pada portal eCourse Del)*
 - **Institusi**: Institut Teknologi Del
 - **Cabang Git Aktif**: `week9-rest-api` *(basis pengembangan dari cabang `week6-db-session`)*
 - **Alamat Repositori**: [https://github.com/ChoqySirait/ppw-2026-week5-12S24012.git](https://github.com/ChoqySirait/ppw-2026-week5-12S24012.git)
@@ -32,9 +32,9 @@ Pada Tahap 1 dan Tahap 2 (Praktikum Minggu 5 & 6), SIPUS-Del beroperasi sebagai 
 **Tujuan Pengembangan Tahap 3 (Minggu 09):**
 1. **Transformasi Interoperabilitas Sistem**: Membuka antarmuka terprogram (*Application Programming Interface*) berstandar industri tanpa merusak fungsi web Blade yang telah beroperasi.
 2. **Penyediaan Layanan SOAP Provider**: Membangun layanan *Bebas Pustaka (Library Clearance)* berbasis kontrak formal WSDL (`/soap/sipus.wsdl` dan `/soap/sipus`) untuk diintegrasikan secara terstandar dengan Sistem Informasi Kelulusan/Wisuda IT Del.
-3. **Penyediaan RESTful Web API v1**: Membangun antarmuka REST API modern berbasis JSON dengan arsitektur stateless, pagination, sorting dinamis, filtering multi-kriteria, kontrol concurrency, dan relasi hipermedia dinamis (HATEOAS).
-4. **Keamanan Berbasis Token Tanpa Sesi (Stateless Sanctum)**: Menerapkan mekanisme autentikasi Bearer Token untuk seluruh operasi mutasi katalog dan sirkulasi peminjaman.
-5. **Standarisasi Penanganan Kesalahan (RFC 7807 Problem Details)**: Menyediakan format respons galat yang seragam dengan header `application/problem+json` sehingga memudahkan pengembang aplikasi klien melakukan diagnosis.
+3. **Penyediaan RESTful Web API v1**: Membangun antarmuka REST API modern berbasis JSON dengan arsitektur stateless, pagination, sorting dinamis (`sort` dan `direction`), filtering multi-kriteria (`search`, `kategori_id`, `tersedia`), kontrol concurrency, dan relasi hipermedia dinamis (HATEOAS).
+4. **Keamanan Berbasis Token Tanpa Sesi (Stateless Sanctum)**: Menerapkan mekanisme autentikasi Bearer Token untuk seluruh operasi mutasi katalog dan sirkulasi peminjaman, di mana token disimpan secara aman dalam bentuk hash SHA-256 pada basis data.
+5. **Standarisasi Penanganan Kesalahan (RFC 7807 Problem Details)**: Menyediakan format respons galat yang seragam dengan header `application/problem+json` dan ekstensi `errors` untuk validasi.
 6. **Integrasi Layanan Eksternal (Service Consumer)**: Menghubungkan SIPUS-Del ke *OpenLibrary Books API* menggunakan Laravel HTTP Client untuk pengayaan metadata buku secara terprogram dan tangguh (*fault-tolerant*).
 7. **Kontrak Standar OpenAPI 3.0**: Menyusun dokumentasi spesifikasi API formal dalam format YAML untuk standarisasi siklus hidup rekayasa perangkat lunak.
 
@@ -50,8 +50,8 @@ Pada Tahap 1 dan Tahap 2 (Praktikum Minggu 5 & 6), SIPUS-Del beroperasi sebagai 
 | | Manajemen Katalog Buku Terbuka | REST API mencakup operasi `GET` (daftar berhalaman & rincian), `POST` (pendaftaran judul baru), `PUT` (penggantian representasi utuh), `PATCH` (pembaruan parsial), dan `DELETE` (penghapusan terkontrol). |
 | | Sirkulasi Peminjaman Atomik | REST API transaksi peminjaman dan pengembalian buku dengan validasi ketersediaan stok, pencegahan duplikasi, dan pencatatan riwayat sirkulasi. |
 | | Pengayaan Metadata Koleksi | Service Consumer berbasis REST client yang menghubungi katalog global OpenLibrary berdasarkan nomor ISBN buku lokal. |
-| **Kebutuhan Non-Fungsional** | Keamanan Akses Stateless | Autentikasi Bearer Token menggunakan Laravel Sanctum yang dienkripsi/dihash pada database, terisolasi dari sesi cookie web browser. |
-| | Integritas Konkurensi Data | Proteksi transaksi ACID menggunakan *Pessimistic Row Locking* (`SELECT ... FOR UPDATE`) pada mesin MySQL InnoDB guna menangkal *race condition*. |
+| **Kebutuhan Non-Fungsional** | Keamanan Akses Stateless | Autentikasi Bearer Token menggunakan Laravel Sanctum yang disimpan dalam bentuk hash SHA-256 pada database, terisolasi dari sesi cookie web browser. |
+| | Integritas Konkurensi Data | Proteksi transaksi ACID menggunakan *Pessimistic Row Locking* (`SELECT ... FOR UPDATE`) pada mesin MySQL 8.0 InnoDB guna menangkal *race condition*. |
 | | Ketahanan Jaringan Eksternal | Pembatasan tenggat waktu koneksi (*HTTP timeout*) 8 detik pada komunikasi eksternal dan mekanisme fallback informatif saat data upstream tidak tersedia. |
 | | Kontrak API Terbuka & Jelas | Dokumentasi formal WSDL (XML) untuk SOAP dan OpenAPI 3.0 (YAML) untuk REST API. |
 
@@ -106,7 +106,7 @@ flowchart LR
 | **Definisi Peran** | Menyediakan endpoint dan kontrak terprogram yang menerima permintaan dari klien luar, memproses aturan bisnis perpustakaan, dan memberikan respons terstruktur. | Menjalankan panggilan terprogram keluar (*outbound request*) untuk mengambil data atau memanfaatkan fungsionalitas dari sistem pihak ketiga. |
 | **Endpoint Terlibat** | - `GET /soap/sipus.wsdl`<br/>- `POST /soap/sipus`<br/>- `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`<br/>- `GET/POST/PUT/PATCH/DELETE /api/v1/bukus`<br/>- `GET/POST/PATCH /api/v1/peminjamans` | - `GET /api/v1/bukus/{id}/referensi-eksternal` *(secara internal memanggil endpoint `https://openlibrary.org/isbn/{isbn}.json`)* |
 | **Protokol / Gaya Arsitektur** | - SOAP 1.1 melalui HTTP POST dengan dokumen kontrak WSDL.<br/>- RESTful Web API v1 melalui HTTP semantik (JSON). | REST Client berbasis protokol HTTP/HTTPS menggunakan Laravel `Http` Facade. |
-| **Format Pertukaran Data** | - XML Envelope (SOAP).<br/>- JSON (REST API) & `application/problem+json` (RFC 7807). | JSON (diterima dari OpenLibrary) dan dipetakan ke format DTO internal. |
+| **Format Pertukaran Data** | - XML Envelope (SOAP).<br/>- JSON (REST API) & `application/problem+json` (RFC 7807). | JSON (diterima dari OpenLibrary) dan dipetakan ke format respons internal. |
 | **Tanggung Jawab Utama** | - Validasi masukan data klien.<br/>- Autentikasi dan otorisasi token.<br/>- Penegakan integritas data ACID pada basis data lokal.<br/>- Menghasilkan pesan galat terstandar. | - Membangun payload/query permintaan yang benar.<br/>- Mengatur tenggat waktu jaringan (*timeout*).<br/>- Menangani kondisi server eksternal down / timeout secara aman (*graceful degradation*). |
 
 ---
@@ -156,7 +156,7 @@ flowchart TD
     end
 
     subgraph Domain_Services["Lapisan Domain, Logika Bisnis & ACID"]
-        SanctumAuth["Sanctum Token Guard<br/>(Bearer Token Validation)"]
+        SanctumAuth["Sanctum Token Guard<br/>(Bearer Token Validation via Hash SHA-256)"]
         ACIDEngine["DB::transaction()<br/>Pessimistic Locking (lockForUpdate)"]
         HttpService["OpenLibrary Consumer<br/>(Illuminate\\Support\\Facades\\Http)"]
     end
@@ -181,10 +181,10 @@ flowchart TD
 ### Alur Siklus Permintaan REST API:
 1. Permintaan masuk ke endpoint `/api/v1/*` dengan header `Accept: application/json`.
 2. Middleware Sanctum memeriksa keberadaan dan keabsahan token pada header `Authorization: Bearer <token>` untuk rute-rute yang diproteksi.
-3. Controller menjalankan validasi data input. Jika validasi gagal, Exception Handler langsung menghasilkan respons HTTP 422 dengan format RFC 7807 Problem Details.
+3. Controller menjalankan validasi data input. Jika validasi gagal, Exception Handler langsung menghasilkan respons HTTP 422 dengan format RFC 7807 Problem Details dan properti `errors`.
 4. Pada transaksi peminjaman/pengembalian, controller menginisialisasi blok `DB::transaction` dan mengunci baris data buku via `lockForUpdate()`.
-5. Data hasil kueri dibungkus oleh `BukuResource` atau `PeminjamanResource` yang menyuntikkan tautan navigasi dinamis (HATEOAS).
-6. Respons dikembalikan ke klien dengan status code semantik (200, 201, 204, 401, 404, 409, 422).
+5. Data hasil kueri dibungkus oleh `BukuResource` atau `PeminjamanResource` yang menyuntikkan tautan navigasi dinamis (HATEOAS: `self`, `referensi_eksternal`, `pinjam_buku`, dan `kembalikan_buku`).
+6. Respons dikembalikan ke klien dengan status code semantik (200, 201, 204, 401, 404, 409, 422, 502, 504).
 
 ---
 
@@ -200,7 +200,7 @@ d:\Github\ppw-2026-week5-12S24012\
 │   │   │   ├── Api/
 │   │   │   │   └── V1/
 │   │   │   │       ├── AuthApiController.php         <-- Endpoint Login, Profil (Me), & Logout (Revoke Token)
-│   │   │   │       ├── BukuApiController.php         <-- CRUD Buku, Filtering, Sorting, & OpenLibrary Consumer
+│   │   │   │       ├── BukuApiController.php         <-- CRUD Buku, Filtering, Sorting (sort/direction), & OpenLibrary Consumer
 │   │   │   │       └── PeminjamanApiController.php   <-- Transaksi Peminjaman ACID, Pengembalian, & Riwayat
 │   │   │   ├── Soap/
 │   │   │   │   └── LibrarySoapController.php         <-- Kontrak WSDL & Engine SOAP CheckClearanceStatus
@@ -209,8 +209,8 @@ d:\Github\ppw-2026-week5-12S24012\
 │   │   │   ├── KategoriController.php                <-- [Week 6] Pengendali Kategori Web Blade
 │   │   │   └── PeminjamanController.php              <-- [Week 6] Pengendali Sirkulasi Web Blade
 │   │   └── Resources/
-│   │       ├── BukuResource.php                      <-- Transformasi JSON Koleksi Buku + Tautan HATEOAS
-│   │       └── PeminjamanResource.php                <-- Transformasi JSON Sirkulasi + Tautan HATEOAS
+│   │       ├── BukuResource.php                      <-- Transformasi JSON Koleksi Buku + Tautan HATEOAS (self, referensi_eksternal, pinjam_buku)
+│   │       └── PeminjamanResource.php                <-- Transformasi JSON Sirkulasi + Tautan HATEOAS (self, buku, kembalikan_buku)
 │   ├── Models/
 │   │   ├── Buku.php                                  <-- Model Eloquent Buku (Relasi Kategori & Peminjaman)
 │   │   ├── Kategori.php                              <-- Model Eloquent Master Kategori
@@ -219,9 +219,9 @@ d:\Github\ppw-2026-week5-12S24012\
 │   └── Traits/
 │       └── ApiResponse.php                           <-- Trait Standarisasi Format Respons & RFC 7807
 ├── bootstrap/
-│   └── app.php                                       <-- Konfigurasi Exception Handler RFC 7807 & Pengecualian CSRF SOAP
+│   └── app.php                                       <-- Konfigurasi Exception Handler RFC 7807 (errors) & Pengecualian CSRF SOAP
 ├── database/
-│   ├── migrations/                                   <-- Migrasi tabel users, kategoris, bukus, peminjamans, & tokens
+│   ├── migrations/                                   <-- Migrasi tabel users, kategoris, bukus, peminjamans, & personal_access_tokens
 │   └── seeders/
 │       └── DatabaseSeeder.php                        <-- Seeder Akun Pustakawan, Kategori 1-5, Buku 1-5 (Kasus Batas)
 ├── docs/
@@ -263,13 +263,13 @@ Seluruh antarmuka layanan terprogram SIPUS-Del dirangkum dalam tabel katalog ber
 | 4 | `GET` | `/api/v1/auth/me` | Bearer Token | Mengambil identitas profil pustakawan yang sedang login. | `200 OK`<br/>`401 RFC 7807` |
 | 5 | `POST` | `/api/v1/auth/logout` | Bearer Token | Mencabut (*revoke*) token aktif sehingga tidak dapat digunakan kembali. | `200 OK`<br/>`401 RFC 7807` |
 | **C** | **REST API v1: KATALOG KOLEKSI BUKU** | | | | |
-| 6 | `GET` | `/api/v1/bukus` | Publik | Mengambil daftar katalog berhalaman. Query: `search`, `kategori_id`, `tersedia`, `sort_by`, `sort_order`, `per_page`. | `200 OK` (Array Data + Paginasi Meta + Tautan HATEOAS) |
+| 6 | `GET` | `/api/v1/bukus` | Publik | Mengambil daftar katalog berhalaman. Query: `search`, `kategori_id`, `tersedia`, `sort`, `direction`, `per_page`. | `200 OK` (Array Data + Paginasi Meta + Tautan HATEOAS) |
 | 7 | `GET` | `/api/v1/bukus/{id}` | Publik | Mengambil detail lengkap koleksi buku berdasarkan ID. | `200 OK` (Data + HATEOAS)<br/>`404 RFC 7807` |
-| 8 | `POST` | `/api/v1/bukus` | Bearer Token | Menambahkan judul buku baru ke database. Body: `isbn`, `judul`, `penulis`, `penerbit`, `tahun_terbit`, `kategori_id`, `stok`, `sinopsis`. | `201 Created` (+ Header `Location`)<br/>`422 RFC 7807` |
+| 8 | `POST` | `/api/v1/bukus` | Bearer Token | Menambahkan judul buku baru ke database. Body: `isbn` (maks 20), `judul` (maks 255), `penulis` (maks 150), `penerbit` (maks 100), `tahun_terbit`, `kategori_id`, `stok`, `sinopsis`. | `201 Created` (+ Header `Location`)<br/>`422 RFC 7807` |
 | 9 | `PUT` | `/api/v1/bukus/{id}` | Bearer Token | Penggantian representasi utuh (*Full Replacement*). Seluruh atribut wajib dikirim. | `200 OK`<br/>`404 / 422 RFC 7807` |
 | 10 | `PATCH` | `/api/v1/bukus/{id}` | Bearer Token | Pembaruan parsial (*Partial Update*). Mengubah atribut yang dikirimkan saja. | `200 OK`<br/>`404 / 422 RFC 7807` |
 | 11 | `DELETE`| `/api/v1/bukus/{id}` | Bearer Token | Menghapus koleksi buku jika tidak memiliki pinjaman aktif. | `204 No Content`<br/>`404 / 409 RFC 7807` |
-| 12 | `GET` | `/api/v1/bukus/{id}/referensi-eksternal` | Publik | Mengonsumsi API OpenLibrary berdasarkan ISBN untuk sinkronisasi metadata. | `200 OK` (Data Sinkron / Fallback)<br/>`404 / 502 RFC 7807` |
+| 12 | `GET` | `/api/v1/bukus/{id}/referensi-eksternal` | Publik | Mengonsumsi API OpenLibrary berdasarkan ISBN untuk sinkronisasi metadata. | `200 OK` (Data Sinkron / Fallback Lokal)<br/>`404 / 502 / 504 RFC 7807` |
 | **D** | **REST API v1: TRANSAKSI SIRKULASI PEMINJAMAN** | | | | |
 | 13 | `GET` | `/api/v1/peminjamans` | Bearer Token | Mengambil daftar sirkulasi berhalaman. Query: `status`, `nim`, `search`, `per_page`. | `200 OK` (Array Sirkulasi + HATEOAS) |
 | 14 | `GET` | `/api/v1/peminjamans/{id}` | Bearer Token | Mengambil rincian data transaksi peminjaman berdasarkan ID. | `200 OK`<br/>`404 RFC 7807` |
@@ -294,7 +294,7 @@ flowchart TD
     subgraph Stateless_Sanctum["Autentikasi Berbasis Token (REST API v1)"]
         A1["POST /api/v1/auth/login (JSON Body)"] --> A2["Validasi Kredensial Pengguna"]
         A2 --> A3["$user->createToken('api-token')->plainTextToken"]
-        A3 --> A4["Simpan SHA-256 Hash di tabel personal_access_tokens"]
+        A3 --> A4["Simpan Hash SHA-256 di kolom 'token' tabel personal_access_tokens"]
         A4 --> A5["Klien menerima token string (cth: '1|xyz...')"]
         A5 --> A6["Setiap Request menyertakan header:<br/>Authorization: Bearer &lt;token&gt;"]
         A6 --> A7["POST /api/v1/auth/logout memanggil:<br/>$request->user()->currentAccessToken()->delete()"]
@@ -303,9 +303,10 @@ flowchart TD
 
 ### Keunggulan Arsitektur Stateless Token untuk API:
 1. **Tidak Ada Ketergantungan Sesi (*No Server-Side Session State*)**: Server tidak perlu menyimpan state login di memory atau file storage. Setiap permintaan membawa bukti otorisasi lengkapnya sendiri pada HTTP Header.
-2. **Skalabilitas Horisontal**: Permintaan dapat diarahkan ke server node mana pun di balik *Load Balancer* tanpa memerlukan mekanisme *Sticky Session*.
-3. **Kekebalan dari Serangan CSRF**: Karena peramban tidak menyertakan Bearer Token secara otomatis saat mengeklik tautan berbahaya lintas domain (*cross-origin*), REST API kebal terhadap serangan CSRF tanpa memerlukan token anti-CSRF berbasis form.
-4. **Pencabutan Terkontrol (*Granular Revocation*)**: Pada saat logout, token dicabut melalui `$request->user()->currentAccessToken()->delete()`. Seluruh percobaan request berikutnya yang menggunakan token yang sama langsung ditolak dengan respons `401 Unauthorized`.
+2. **Penyimpanan Aman Berbasis Hash**: Nilai token yang disimpan pada basis data bukanlah teks mentah dan bukan pula cipher reversibel, melainkan representasi hash satu arah (**SHA-256**) pada tabel `personal_access_tokens`. Apabila basis data bocor, penyerang tidak dapat merekonstruksi token asli yang digunakan klien.
+3. **Skalabilitas Horisontal**: Permintaan dapat diarahkan ke server node mana pun di balik *Load Balancer* tanpa memerlukan mekanisme *Sticky Session*.
+4. **Kekebalan dari Serangan CSRF**: Karena peramban tidak menyertakan Bearer Token secara otomatis saat mengeklik tautan berbahaya lintas domain (*cross-origin*), REST API kebal terhadap serangan CSRF tanpa memerlukan token anti-CSRF berbasis form.
+5. **Pencabutan Terkontrol (*Granular Revocation*)**: Pada saat logout, token dicabut melalui `$request->user()->currentAccessToken()->delete()`. Seluruh percobaan request berikutnya yang menggunakan token yang sama langsung ditolak dengan respons `401 Unauthorized`.
 
 ---
 
@@ -316,7 +317,7 @@ Pada sistem sirkulasi perpustakaan dengan konkurensi pengguna yang tinggi, opera
 ### 10.1 Empat Pilar ACID dalam Sirkulasi SIPUS-Del
 - **Atomicity (Keutuhan)**: Seluruh rangkaian peminjaman (pengurangan stok buku dan pembuatan baris peminjaman) dibungkus dalam blok `DB::transaction(function () { ... })`. Apabila terjadi kegagalan di tengah jalan (misal validasi duplikasi gagal atau stok buku tidak mencukupi), seluruh modifikasi otomatis dibatalkan (*rollback*) ke kondisi awal.
 - **Consistency (Konsistensi)**: Aturan bisnis ditegakkan secara absolut. Stok buku tidak akan pernah bernilai negatif ($stok \ge 0$), dan seorang mahasiswa dengan NIM tertentu tidak dapat meminjam buku fisik yang sama secara simultan jika status peminjaman sebelumnya masih `dipinjam`.
-- **Isolation (Isolasi)**: Melalui *Pessimistic Locking* di tingkat basis data MySQL InnoDB, transaksi yang sedang berjalan diisolasi dari transaksi paralel lainnya.
+- **Isolation (Isolasi)**: Melalui *Pessimistic Locking* di tingkat basis data MySQL 8.0 InnoDB, transaksi yang sedang berjalan diisolasi dari transaksi paralel lainnya.
 - **Durability (Daya Tahan)**: Begitu transaksi mencapai tahap `COMMIT`, modifikasi data tersimpan secara permanen pada log penyimpanan transaksi MySQL InnoDB (*Write-Ahead Logging*) dan tetap bertahan meskipun server mengalami gangguan daya.
 
 ### 10.2 Bahaya Race Condition dan Solusi `lockForUpdate()`
@@ -355,7 +356,9 @@ sequenceDiagram
     S-->>B: HTTP 422 Unprocessable Content (Stok Buku Habis)
 ```
 
-Tanpa klausul `lockForUpdate()`, Request B akan membaca `stok = 1` secara bersamaan dengan Request A sebelum Request A sempat menguranginya, menghasilkan stok minus (-1) dan inkonsistensi fisik koleksi perpustakaan.
+> [!IMPORTANT]
+> **Catatan Lingkungan Uji Konkurensi**:  
+> Demonstrasi konkurensi nyata harus dijalankan di atas basis data **MySQL 8.0 InnoDB** (misal Laragon lokal). SQLite In-Memory yang digunakan pada pengujian otomatis `php artisan test` mengabaikan klausul `lockForUpdate` atau menerapkan penguncian seluruh tabel (*table-level lock*), sehingga pembuktian *row-level locking* secara visual dan empiris wajib dilakukan pada MySQL InnoDB.
 
 ---
 
@@ -369,7 +372,16 @@ Tanpa klausul `lockForUpdate()`, Request B akan membaca `stok = 1` secara bersam
 | **Kewajiban Pengiriman Field** | **Seluruh atribut wajib dikirim** (`isbn`, `judul`, `penulis`, `penerbit`, `tahun_terbit`, `kategori_id`, `stok`). Jika salah satu field hilang, sistem menolak dengan `HTTP 422`. | **Hanya field yang ingin diubah** yang dikirim (`sometimes|required`). Atribut lainnya tetap mempertahankan nilai yang ada di basis data. |
 | **Sifat Idempoten** | Idempoten: Mengeksekusi permintaan PUT yang identik berulang kali akan menghasilkan kondisi representasi yang sama di server. | Dapat bersifat idempoten tergantung atribut yang dimodifikasi. |
 
-### 11.2 Semantik Kode Status HTTP (*HTTP Status Codes*)
+### 11.2 Penyelarasan Validasi Controller dan Skema Basis Data (MySQL Migration)
+Sesuai audit skema migrasi tabel `bukus`:
+- `isbn`: `VARCHAR(20)`
+- `judul`: `VARCHAR(255)`
+- `penulis`: `VARCHAR(150)`
+- `penerbit`: `VARCHAR(100)`
+
+Validasi pada `BukuApiController` telah diselaraskan secara ketat menjadi `isbn: max:20` dan `penerbit: max:100` untuk mencegah anomali *Data too long for column* di tingkat MySQL, menjamin bahwa kesalahan masukan selalu dikembalikan sebagai `422 Unprocessable Content` terstandar.
+
+### 11.3 Semantik Kode Status HTTP (*HTTP Status Codes*)
 SIPUS-Del mematuhi standar status code semantik secara ketat tanpa kompromi:
 - **`200 OK`**: Permintaan berhasil diproses dan mengembalikan data (GET, PUT, PATCH).
 - **`201 Created`**: Sumber daya baru berhasil dibuat (POST buku dan POST peminjaman). Wajib menyertakan HTTP Header `Location` yang menunjuk ke URI sumber daya baru tersebut.
@@ -379,10 +391,11 @@ SIPUS-Del mematuhi standar status code semantik secara ketat tanpa kompromi:
 - **`404 Not Found`**: ID sumber daya yang diminta tidak ditemukan di basis data.
 - **`409 Conflict`**: Terjadi konflik logika bisnis atau pelanggaran integritas data (misalnya: meminjam buku yang sedang dipinjam oleh NIM yang sama, mengembalikan buku yang sudah berstatus 'dikembalikan', atau menghapus buku yang masih memiliki peminjaman aktif).
 - **`422 Unprocessable Content`**: Format data benar (JSON valid) namun melanggar aturan validasi bisnis (misalnya: stok bernilai 0 saat ingin dipinjam, ISBN duplikat, atau field wajib tidak diisi).
-- **`502 Bad Gateway` / `504 Gateway Timeout`**: Server hulu (*upstream provider* OpenLibrary) mengalami kegagalan respons atau waktu tunggu habis.
+- **`502 Bad Gateway`**: Server upstream OpenLibrary mengembalikan kode galat HTTP 5xx atau format data rusak.
+- **`504 Gateway Timeout`**: Waktu tunggu koneksi jaringan ke layanan eksternal OpenLibrary habis melebihi 8 detik.
 
-### 11.3 HATEOAS (*Hypermedia as the Engine of Application State*)
-Untuk mencapai tingkat kematangan REST Level 3 (*Richardson Maturity Model*), respons entitas buku dan peminjaman diperkaya dengan objek hipermedia dinamis `_links`. Klien tidak perlu mengasumsikan URL aksi berikutnya, melainkan dipandu langsung oleh kondisi representasi data:
+### 11.4 HATEOAS (*Hypermedia as the Engine of Application State*)
+Untuk mencapai tingkat kematangan REST Level 3 (*Richardson Maturity Model*), respons entitas buku dan peminjaman diperkaya dengan objek hipermedia dinamis `_links`:
 
 ```json
 {
@@ -390,18 +403,27 @@ Untuk mencapai tingkat kematangan REST Level 3 (*Richardson Maturity Model*), re
   "judul": "Struktur Data dan Algoritma Lanjut dengan Go",
   "stok": 1,
   "_links": {
-    "self": "http://localhost:8000/api/v1/bukus/2",
-    "katalog": "http://localhost:8000/api/v1/bukus",
-    "referensi_eksternal": "http://localhost:8000/api/v1/bukus/2/referensi-eksternal",
-    "pinjam": "http://localhost:8000/api/v1/peminjamans"
+    "self": {
+      "href": "http://localhost:8000/api/v1/bukus/2",
+      "method": "GET"
+    },
+    "referensi_eksternal": {
+      "href": "http://localhost:8000/api/v1/bukus/2/referensi-eksternal",
+      "method": "GET"
+    },
+    "pinjam_buku": {
+      "href": "http://localhost:8000/api/v1/peminjamans",
+      "method": "POST",
+      "description": "Meminjam buku ini secara atomik"
+    }
   }
 }
 ```
 *Catatan Logika Hipermedia:*
-- Tautan `"pinjam"` **hanya akan muncul** jika kondisi `stok > 0`. Jika stok buku habis ($0$), tautan pinjam otomatis dihilangkan dari objek `_links`.
-- Pada entitas peminjaman, tautan `"kembalikan"` **hanya akan muncul** jika status peminjaman masih `'dipinjam'`. Jika status telah `'dikembalikan'`, tautan aksi tersebut ditiadakan.
+- Tautan `"pinjam_buku"` **hanya akan muncul** jika kondisi `stok > 0`. Jika stok buku habis ($0$), tautan pinjam otomatis dihilangkan dari objek `_links`.
+- Pada entitas peminjaman, tautan `"kembalikan_buku"` (`method: PATCH`) **hanya akan muncul** jika status peminjaman masih `'dipinjam'`. Jika status telah `'dikembalikan'`, tautan aksi tersebut ditiadakan.
 
-### 11.4 Standar Penanganan Kesalahan: RFC 7807 Problem Details
+### 11.5 Standar Penanganan Kesalahan: RFC 7807 Problem Details
 Seluruh respons galat pada endpoint `/api/v1/*` diseragamkan mengikuti standar IETF **RFC 7807** dengan header respons `Content-Type: application/problem+json`:
 
 ```json
@@ -409,22 +431,26 @@ Seluruh respons galat pada endpoint `/api/v1/*` diseragamkan mengikuti standar I
   "type": "https://tools.ietf.org/html/rfc7231#section-6.5.8",
   "title": "Conflict",
   "status": 409,
-  "detail": "Mahasiswa dengan NIM 12S24012 masih memiliki transaksi peminjaman aktif untuk buku ini.",
+  "detail": "Mahasiswa dengan NIM 12S24001 masih meminjam buku ini dan belum mengembalikannya.",
   "instance": "/api/v1/peminjamans"
 }
 ```
-Apabila galat disebabkan oleh kegagalan validasi masukan (HTTP 422), struktur RFC 7807 diperkaya dengan objek `invalid_params` yang memuat rincian pesan kesalahan per atribut:
+Apabila galat disebabkan oleh kegagalan validasi masukan (HTTP 422), struktur RFC 7807 diperkaya dengan objek ekstensi `errors` yang memuat rincian pesan kesalahan per atribut:
 
 ```json
 {
   "type": "https://tools.ietf.org/html/rfc4918#section-11.2",
   "title": "Unprocessable Content",
   "status": 422,
-  "detail": "Data yang dikirimkan tidak memenuhi kriteria validasi sistem.",
+  "detail": "Data yang dikirimkan tidak valid atau tidak memenuhi kriteria validasi.",
   "instance": "/api/v1/bukus",
-  "invalid_params": {
-    "isbn": ["Nomor ISBN sudah terdaftar pada sistem perpustakaan."],
-    "stok": ["Nilai stok buku tidak boleh kurang dari 0."]
+  "errors": {
+    "isbn": [
+      "The isbn field must not be greater than 20 characters."
+    ],
+    "penerbit": [
+      "The penerbit field must not be greater than 100 characters."
+    ]
   }
 }
 ```
@@ -440,25 +466,48 @@ SIPUS-Del bertindak sebagai *Service Consumer* yang mengonsumsi antarmuka publik
 Integrasi dibangun menggunakan Laravel `Http` Facade dengan mengisolasi panggilan jaringan dan menetapkan tenggat waktu ketat:
 
 ```php
-$isbnClean = str_replace(['-', ' '], '', $buku->isbn);
-$url = "https://openlibrary.org/isbn/{$isbnClean}.json";
+$cleanIsbn = preg_replace('/[^0-9X]/i', '', $buku->isbn ?? '');
 
 try {
-    $response = Http::timeout(8)->acceptJson()->get($url);
-    // Evaluasi status response eksternal
-} catch (\Illuminate\Http\Client\ConnectionException $e) {
-    return $this->errorResponse(
-        'Gagal terhubung dengan layanan eksternal OpenLibrary (Connection Timeout).',
-        504,
-        'Gateway Timeout'
-    );
+    $response = Http::timeout(8)->get("https://openlibrary.org/isbn/{$cleanIsbn}.json");
+
+    if ($response->status() === 404) {
+        return $this->successResponse([
+            'buku_id' => $buku->id,
+            'isbn' => $buku->isbn,
+            'clean_isbn' => $cleanIsbn,
+            'status_sinkronisasi' => 'not_found',
+            'pesan' => 'Metadata buku tidak ditemukan pada repositori OpenLibrary.',
+            'metadata' => null,
+            'fallback_lokal' => [
+                'judul' => $buku->judul,
+                'penulis' => $buku->penulis,
+                'penerbit' => $buku->penerbit,
+                'tahun_terbit' => (int) $buku->tahun_terbit,
+                'kategori' => $buku->kategori?->nama_kategori,
+                'stok' => (int) $buku->stok,
+            ],
+        ], 'Metadata eksternal tidak ditemukan.', 200);
+    }
+
+    if (! $response->successful()) {
+        abort(502, 'Layanan eksternal OpenLibrary mengembalikan status galat: ' . $response->status());
+    }
+
+    // Pemetaan metadata sinkron (200 OK)
+} catch (ConnectionException $e) {
+    abort(504, 'Koneksi ke layanan eksternal OpenLibrary melebihi batas waktu (timeout 8 detik).');
+} catch (Throwable $e) {
+    if ($e instanceof HttpExceptionInterface) throw $e;
+    abort(500, 'Terjadi kendala sistem saat memproses referensi eksternal.');
 }
 ```
 
 ### 12.2 Strategi Ketahanan Sistem (*Graceful Degradation*)
-1. **ISBN Ditemukan di OpenLibrary**: Sistem mengembalikan metadata terstruktur mencakup `title`, `publish_date`, `number_of_pages`, `publishers`, dan `works_key` dengan status `200 OK`.
-2. **ISBN Tidak Ditemukan di OpenLibrary**: Sistem tidak memicu crash atau pesan galat yang membingungkan klien. Sistem mengembalikan respons `200 OK` dengan status `found: false` dan menyajikan data fallback lokal bersumber dari database internal SIPUS-Del.
-3. **Kegagalan Server Eksternal / Jaringan Terputus**: Sistem menangkap pengecualian jaringan secara aman dan mengembalikan pesan RFC 7807 berstatus `502 Bad Gateway` atau `504 Gateway Timeout`, menjamin kestabilan server lokal.
+1. **ISBN Ditemukan di OpenLibrary**: Sistem mengembalikan metadata terstruktur mencakup `judul`, `jumlah_halaman`, `penerbit`, `tanggal_terbit`, dan tautan OpenLibrary dengan status `200 OK` (`status_sinkronisasi: "synced"`).
+2. **ISBN Tidak Ditemukan di OpenLibrary**: Sistem mengembalikan respons `200 OK` dengan `status_sinkronisasi: "not_found"` dan menyajikan data fallback lokal (`fallback_lokal`) bersumber dari basis data internal SIPUS-Del.
+3. **Kegagalan Server Eksternal**: Jika OpenLibrary mengembalikan kode galat HTTP 5xx, sistem menghasilkan respons terstandar `502 Bad Gateway` Problem Details.
+4. **Batas Waktu Jaringan Habis**: Jika koneksi jaringan terputus atau melebihi 8 detik, sistem mengembalikan respons terstandar `504 Gateway Timeout` Problem Details tanpa membocorkan pesan pengecualian internal PHP.
 
 ---
 
@@ -481,7 +530,7 @@ Dokumentasi spesifikasi formal REST API SIPUS-Del v1 tersedia dalam format OpenA
         bearerFormat: SanctumPlainTextToken
         description: Masukkan Bearer Token Sanctum yang diperoleh dari endpoint POST /api/v1/auth/login.
   ```
-- **`schemas`**: Mendefinisikan skema terstruktur untuk `Buku`, `BukuInput`, `Peminjaman`, `PeminjamanInput`, `ProblemDetails` (RFC 7807), `ValidationErrorDetails`, dan `OpenLibraryMetadata`.
+- **`schemas`**: Mendefinisikan skema terstruktur untuk `Buku`, `BukuInput` (dengan batasan `maxLength`), `Peminjaman`, `PeminjamanInput`, `ProblemDetails` (RFC 7807 dengan `errors`), dan `ExternalReferenceResponse`.
 
 Spesifikasi YAML ini dapat langsung diimpor ke Swagger Editor ([https://editor.swagger.io](https://editor.swagger.io)), Postman, atau dihubungkan ke Redoc untuk menghasilkan portal dokumentasi API interaktif.
 
@@ -517,7 +566,7 @@ Spesifikasi YAML ini dapat langsung diimpor ke Swagger Editor ([https://editor.s
    ```
 
 4. **Konfigurasi Koneksi Basis Data MySQL**:
-   Buka berkas `.env` dan pastikan konfigurasi basis data mengarah ke instans MySQL lokal:
+   Buka berkas `.env` dan pastikan konfigurasi basis data mengarah ke instans MySQL lokal (mesin InnoDB):
    ```dotenv
    DB_CONNECTION=mysql
    DB_HOST=127.0.0.1
@@ -539,7 +588,7 @@ Spesifikasi YAML ini dapat langsung diimpor ke Swagger Editor ([https://editor.s
    > - **Akun Pustakawan**: `pustakawan@del.ac.id` / `password123`
    > - **Buku ID 1**: Stok = 0 (*Arsitektur Komputasi Cloud Skala Enterprise*) — disiapkan untuk uji gagal pinjam stok habis.
    > - **Buku ID 2**: Stok = 1 (*Struktur Data dan Algoritma Lanjut dengan Go*) — disiapkan untuk uji transaksi sukses pinjam & pemulihan stok.
-   > - **Buku ID 3**: Stok = 5 (memiliki transaksi pinjaman aktif NIM `12S24001`) — disiapkan untuk uji konflik penghapusan buku.
+   > - **Buku ID 3**: Stok = 5 (memiliki transaksi pinjaman aktif NIM `12S24001`) — disiapkan untuk uji konflik pinjaman duplikat dan konflik penghapusan buku.
    > - **Buku ID 4**: Stok = 7 (memiliki riwayat pengembalian transaksi).
    > - **Buku ID 5**: Stok = 3.
    > - **Kategori ID 1 sampai 5**: `KAT-RPL`, `KAT-SI`, `KAT-DS`, `KAT-JK`, `KAT-TI`.
@@ -571,16 +620,20 @@ Pengujian terprogram seluruh layanan disediakan secara lengkap melalui berkas ko
 3. Seret (*drag-and-drop*) berkas `docs/SIPUS-Del-API-v1.postman_collection.json` atau pilih via file browser.
 4. Koleksi akan muncul pada panel kiri dengan nama: **`SIPUS-Del API v1 (REST & SOAP)`**.
 
-### 16.2 Penjelasan Variabel Koleksi (*Collection Variables*)
-Koleksi telah dilengkapi variabel bawaan yang bekerja secara dinamis melalui skrip uji (*Test Scripts*):
-- **`base_url`**: Bernilai default `http://localhost:8000`. Sesuaikan jika port server Anda berbeda.
-- **`token`**: Menyimpan Sanctum Bearer Token. Variabel ini akan **terisi secara otomatis** begitu request `3.1 POST Login Pustakawan (Sukses)` berhasil dieksekusi.
-- **`book_id`**: Menyimpan ID buku yang diuji. Diperbarui otomatis saat request `6.1 POST Tambah Buku Baru` dijalankan, sehingga request PUT, PATCH, dan DELETE selalu memanipulasi buku uji baru (bukan menghapus buku seed).
-- **`loan_id`**: Menyimpan ID transaksi peminjaman aktif. Diperbarui otomatis saat request `11.1 POST Pinjam Buku Sukses` dijalankan.
-- **`category_id`**: Bernilai `1` (merujuk ke kategori hasil seeder `KAT-RPL`).
+### 16.2 Penjelasan 9 Variabel Koleksi (*Collection Variables*)
+Koleksi telah dilengkapi 9 variabel dinamis:
+- **`base_url`**: Bernilai default `http://localhost:8000`.
+- **`token`**: Menyimpan Sanctum Bearer Token yang terisi otomatis saat eksekusi `3.1 POST Login`.
+- **`book_id`**: Menyimpan ID buku uji baru yang terisi otomatis saat `6.1 POST Tambah Buku Baru` berhasil (digunakan pada PUT, PATCH, dan DELETE 204).
+- **`loan_id`**: Menyimpan ID transaksi peminjaman baru yang terisi otomatis saat `11.1 POST Pinjam Buku` berhasil (digunakan pada PATCH pengembalian).
+- **`category_id`**: Bernilai default `1` (merujuk ke kategori seeder `KAT-RPL`).
+- **`reference_book_id`**: Bernilai default `2` (buku seeder terpisah untuk pengujian OpenLibrary tanpa risiko terhapus).
+- **`out_of_stock_book_id`**: Bernilai default `1` (buku seeder dengan stok 0 untuk pengujian kasus batas 422).
+- **`available_book_id`**: Bernilai default `2` (buku seeder dengan stok 1 untuk pengujian transaksi peminjaman sukses).
+- **`active_loan_book_id`**: Bernilai default `3` (buku seeder dengan stok 5 yang memiliki pinjaman aktif NIM `12S24001` untuk pengujian 409 Conflict).
+- **`github_token`**: Dikosongkan secara default (`""`) demi keamanan. Pengujian 17.1 otomatis ditandai *skip* jika token tidak diisi pengguna.
 
 ### 16.3 Urutan Eksekusi Pengujian (18 Folder Terstruktur)
-Untuk menghindari kegagalan token akibat sesi logout yang dieksekusi terlalu dini, jalankan request secara berurutan sesuai urutan folder berikut:
 
 ```mermaid
 flowchart LR
@@ -608,36 +661,36 @@ flowchart LR
 4. **Folder `4. API Me`**:
    - `4.1 GET Profil Pustakawan (Me)`: Verifikasi akses data diri pustakawan menggunakan Bearer Token (`200 OK`).
 5. **Folder `5. GET katalog dan pagination`**:
-   - `5.1 GET Katalog Buku`: Pengujian filter pencarian, filter kategori, sorting, dan struktur paginasi.
-   - `5.2 GET Detail Buku by ID`: Mengambil buku ID 2 lengkap dengan tautan HATEOAS dinamis.
+   - `5.1 GET Katalog Buku`: Pengujian filter pencarian, filter kategori, sorting (`sort` dan `direction`), dan struktur paginasi.
+   - `5.2 GET Detail Buku by ID`: Mengambil buku ID 2 lengkap dengan tautan HATEOAS dinamis (`pinjam_buku`).
    - `5.3 GET Detail Buku Tidak Ditemukan (404 RFC 7807)`: Uji kasus batas ID tidak valid (`404 Not Found`).
 6. **Folder `6. POST buku`**:
    - `6.1 POST Tambah Buku Baru`: Pendaftaran judul baru (`201 Created` + Header `Location`). Otomatis menyimpan ID ke `book_id`.
-   - `6.2 POST Tambah Buku Validasi Gagal (422 RFC 7807)`: Uji validasi ISBN duplikat dan field kosong.
+   - `6.2 POST Tambah Buku Validasi Gagal (422 RFC 7807)`: Uji validasi ISBN duplikat dan field kosong (RFC 7807 `errors`).
 7. **Folder `7. PUT buku`**:
-   - `7.1 PUT Ganti Buku Penuh (Full Replacement)`: Penggantian utuh data buku uji (`200 OK`).
+   - `7.1 PUT Ganti Buku Penuh (Full Replacement)`: Penggantian utuh data buku uji `{{book_id}}` (`200 OK`).
    - `7.2 PUT Ganti Buku Field Tidak Lengkap (422 RFC 7807)`: Membuktikan bahwa PUT menolak pembaruan jika ada field wajib yang tidak disertakan.
 8. **Folder `8. PATCH buku`**:
-   - `8.1 PATCH Pembaruan Parsial Buku`: Memperbarui stok dan sinopsis saja tanpa mengirim field lain (`200 OK`).
+   - `8.1 PATCH Pembaruan Parsial Buku`: Memperbarui stok dan sinopsis saja pada `{{book_id}}` tanpa mengirim field lain (`200 OK`).
 9. **Folder `9. DELETE buku`**:
-   - `9.1 DELETE Buku Tanpa Pinjaman Aktif (204 No Content)`: Menghapus buku uji baru (`204 No Content`).
-   - `9.2 DELETE Buku Dengan Pinjaman Aktif (409 Conflict)`: Menguji proteksi integritas data pada buku ID 3 (`409 Conflict`).
+   - `9.1 DELETE Buku Tanpa Pinjaman Aktif (204 No Content)`: Menghapus buku uji `{{book_id}}` (`204 No Content` tanpa body).
+   - `9.2 DELETE Buku Dengan Pinjaman Aktif (409 Conflict)`: Menguji proteksi integritas data pada buku `{{active_loan_book_id}}` (ID 3) (`409 Conflict`).
 10. **Folder `10. GET peminjaman`**:
     - `10.1 GET Daftar Sirkulasi Peminjaman`: Menampilkan seluruh catatan sirkulasi berhalaman terproteksi token.
 11. **Folder `11. POST peminjaman sukses`**:
-    - `11.1 POST Pinjam Buku Sukses (201 Created)`: Meminjam buku ID 2 dengan NIM `12S24012`. Stok berkurang dari 1 menjadi 0. Otomatis menyimpan ID peminjaman ke `loan_id`.
+    - `11.1 POST Pinjam Buku Sukses (201 Created)`: Meminjam buku `{{available_book_id}}` (ID 2) dengan NIM `12S24012`. Stok berkurang dari 1 menjadi 0. Otomatis menyimpan ID peminjaman ke `loan_id`.
 12. **Folder `12. Peminjaman dengan stok habis`**:
-    - `12.1 POST Pinjam Buku Stok Habis (422 RFC 7807)`: Menguji penolakan peminjaman pada buku ID 1 yang bersisa stok 0.
+    - `12.1 POST Pinjam Buku Stok Habis (422 RFC 7807)`: Menguji penolakan peminjaman pada buku `{{out_of_stock_book_id}}` (ID 1) yang bersisa stok 0.
 13. **Folder `13. Peminjaman duplikat`**:
-    - `13.1 POST Peminjaman Buku Sama Ganda (409 Conflict)`: Mahasiswa dengan NIM `12S24012` mencoba meminjam kembali buku ID 2 yang sedang dipinjamnya. Sistem menolak dengan `409 Conflict`.
+    - `13.1 POST Peminjaman Buku Sama Ganda (409 Conflict)`: Mahasiswa NIM `12S24001` mencoba meminjam kembali buku `{{active_loan_book_id}}` (ID 3, stok 5 > 0). Sistem mengevaluasi stok masih tersedia, lalu menolak dengan `409 Conflict` karena transaksi sebelumnya masih berstatus `dipinjam`.
 14. **Folder `14. PATCH pengembalian`**:
-    - `14.1 PATCH Pengembalian Buku (Sukses)`: Memproses pengembalian peminjaman aktif (`loan_id`). Status berubah menjadi `'dikembalikan'` dan stok buku fisik pulih +1 (`200 OK`).
+    - `14.1 PATCH Pengembalian Buku (Sukses)`: Memproses pengembalian peminjaman aktif `{{loan_id}}`. Status berubah menjadi `'dikembalikan'` dan stok fisik buku ID 2 pulih kembali menjadi 1 (`200 OK`).
 15. **Folder `15. Pengembalian duplikat`**:
-    - `15.1 PATCH Pengembalian Duplikat (409 Conflict)`: Mencoba mengembalikan transaksi yang sudah dikembalikan. Ditolak dengan `409 Conflict`.
+    - `15.1 PATCH Pengembalian Duplikat (409 Conflict)`: Mencoba mengembalikan transaksi `{{loan_id}}` yang sudah dikembalikan. Ditolak dengan `409 Conflict`.
 16. **Folder `16. OpenLibrary Consumer`**:
-    - `16.1 GET Referensi Metadata Eksternal Buku`: Membaca metadata eksternal via OpenLibrary API berdasarkan ISBN buku ID 2.
+    - `16.1 GET Referensi Metadata Eksternal Buku`: Membaca metadata eksternal via OpenLibrary API berdasarkan ISBN buku `{{reference_book_id}}` (ID 2).
 17. **Folder `17. GitHub REST API exercise`**:
-    - `17.1 GET GitHub Authenticated User (Exercise)`: Permintaan latihan konsumsi REST API pihak ketiga (disensor/placeholder).
+    - `17.1 GET GitHub Authenticated User (Exercise)`: Permintaan latihan konsumsi REST API pihak ketiga (otomatis *skip* jika token kosong).
 18. **Folder `18. Logout Pustakawan`**:
     - `18.1 POST Logout (Revoke Token)`: Mencabut token aktif dari database (`200 OK`).
     - `18.2 GET Me Setelah Logout Ditolak (401 RFC 7807)`: Membuktikan token yang telah dicabut ditolak secara permanen (`401 Unauthorized`).
@@ -647,7 +700,7 @@ flowchart LR
 ## 17. Hasil Pengujian dan Galeri Screenshot
 
 ### 17.1 Hasil Eksekusi Pengujian Otomatis (*Automated Feature & Unit Testing*)
-Seluruh fungsionalitas sistem telah diuji menggunakan rangkaian pengujian otomatis PHPUnit / Pest pada Laravel 11. Seluruh 45 skenario pengujian berhasil lulus dengan total 230 asersi tanpa kegagalan:
+Seluruh fungsionalitas sistem telah diuji menggunakan rangkaian pengujian otomatis PHPUnit / Pest pada Laravel 11. Seluruh 45 skenario pengujian berhasil lulus dengan total **232 asersi** tanpa kegagalan:
 
 ```
    PASS  Tests\Unit\ExampleTest
@@ -711,8 +764,8 @@ Seluruh fungsionalitas sistem telah diuji menggunakan rangkaian pengujian otomat
    PASS  Tests\Feature\ExampleTest
   ✓ the application returns a successful response
 
-  Tests:    45 passed (230 assertions)
-  Duration: 3.37s
+  Tests:    45 passed (232 assertions)
+  Duration: 2.93s
 ```
 
 ---
@@ -721,29 +774,93 @@ Seluruh fungsionalitas sistem telah diuji menggunakan rangkaian pengujian otomat
 
 Di bawah ini disediakan placeholder terstruktur untuk menyimpan tangkapan layar pengujian pada direktori `docs/screenshots/`:
 
-<img width="1917" height="1015" alt="image" src="https://github.com/user-attachments/assets/ffcfea27-7230-4ba1-bd2b-caf9a91421f5" />
+#### Kelompok 1: SOAP XML Provider & SOAP Faults
+*Bukti kontrak WSDL, verifikasi bebas pustaka aktif/tidak aktif, dan SOAP Fault saat format XML/NIM salah.*
 
-<img width="1917" height="1016" alt="image" src="https://github.com/user-attachments/assets/40ca4954-d89d-4b31-bf90-f44f163d39d2" />
+| Pengujian | Tangkapan Layar Respons Postman |
+| :--- | :--- |
+| **Kontrak WSDL (`GET /soap/sipus.wsdl`)** | ![Kontrak WSDL](docs/screenshots/01-soap-wsdl.png) |
+| **Clearance Sukses Bebas Pustaka (`is_cleared: true`)** | ![SOAP Clearance True](docs/screenshots/02-soap-clearance-true.png) |
+| **Clearance Ada Pinjaman Aktif (`is_cleared: false`)** | ![SOAP Clearance False](docs/screenshots/03-soap-clearance-false.png) |
+| **SOAP Fault: Malformed XML (HTTP 400)** | ![SOAP Fault Malformed XML](docs/screenshots/04-soap-fault-malformed.png) |
+| **SOAP Fault: Missing / Empty NIM Element** | ![SOAP Fault Missing NIM](docs/screenshots/05-soap-fault-missing-nim.png) |
 
-<img width="1912" height="1025" alt="image" src="https://github.com/user-attachments/assets/de55e024-7d2d-4341-bef5-37d8d9700ea9" />
+---
 
-<img width="1917" height="1020" alt="image" src="https://github.com/user-attachments/assets/139d4347-f814-4794-911e-fbe826263db7" />
+#### Kelompok 2: Autentikasi Sanctum Bearer Token & Profil Pustakawan
+*Bukti penerbitan Bearer Token, penolakan kredensial salah, dan akses profil Me.*
 
-<img width="1917" height="1018" alt="image" src="https://github.com/user-attachments/assets/3e66db15-4e05-4f8b-9eea-bfc0f24e8881" />
-<img width="1917" height="1021" alt="image" src="https://github.com/user-attachments/assets/faa65c35-ee73-4b8e-b163-f7882129d842" />
-<img width="1917" height="1020" alt="image" src="https://github.com/user-attachments/assets/1ff63ba9-44df-48e9-a1f2-e03e2731570c" />
-<img width="1917" height="1018" alt="image" src="https://github.com/user-attachments/assets/b4df6bf2-987c-447a-87db-255dca6a23a9" />
-<img width="1917" height="1021" alt="image" src="https://github.com/user-attachments/assets/e85b9241-55ee-48cf-9071-15848f75ee39" />
-<img width="1917" height="1025" alt="image" src="https://github.com/user-attachments/assets/b3ea1eda-2ef2-43cf-8707-8a6a1f9d8d86" />
-<img width="1917" height="1015" alt="image" src="https://github.com/user-attachments/assets/7095b64c-d14d-4318-b6af-c9502d2bf26a" />
-<img width="1916" height="1023" alt="image" src="https://github.com/user-attachments/assets/d24ae9c2-8f29-4353-b29b-323fcf32e923" />
-<img width="1917" height="1020" alt="image" src="https://github.com/user-attachments/assets/cd08b366-2bfc-443d-9232-60acfd197ba2" />
-<img width="1917" height="1020" alt="image" src="https://github.com/user-attachments/assets/2b9ca302-3348-4ac3-a7fc-c888fb60c016" />
-<img width="1917" height="1017" alt="image" src="https://github.com/user-attachments/assets/9046ed6d-58ba-46ee-81e5-2b7046a9e7b0" />
-<img width="1917" height="1017" alt="image" src="https://github.com/user-attachments/assets/34e9383f-a9f4-42ad-8a71-e6d4e6254dca" />
-<img width="1917" height="1016" alt="image" src="https://github.com/user-attachments/assets/48b3f996-bf22-4c62-970d-f5ead20ffc40" />
-<img width="1917" height="1022" alt="image" src="https://github.com/user-attachments/assets/6041d3d3-0c8a-4972-b516-aa877617c2cc" />
+| Pengujian | Tangkapan Layar Respons Postman |
+| :--- | :--- |
+| **Login Sukses Menerbitkan Token (HTTP 200)** | ![API Login Sukses](docs/screenshots/06-api-login-success.png) |
+| **Login Gagal Password Salah (HTTP 401 RFC 7807)** | ![API Login Password Salah](docs/screenshots/07-api-login-invalid-password.png) |
+| **Akses Profil Pustakawan Me (HTTP 200)** | ![API Me Profil](docs/screenshots/08-api-me-success.png) |
 
+---
+
+#### Kelompok 3: Penelusuran Katalog Buku, Paginasi, Filter, & HATEOAS
+*Bukti respons JSON katalog, filter kategori, penomoran halaman, dan hipermedia.*
+
+| Pengujian | Tangkapan Layar Respons Postman |
+| :--- | :--- |
+| **GET Katalog Berhalaman & Filter Pencarian** | ![Katalog Berhalaman](docs/screenshots/09-get-bukus-pagination.png) |
+| **GET Rincian Buku ID 2 dengan Tautan HATEOAS (`pinjam_buku`)** | ![Detail Buku HATEOAS](docs/screenshots/10-get-buku-detail-hateoas.png) |
+| **GET Detail Buku Tidak Ditemukan (HTTP 404 RFC 7807)** | ![Buku 404 Not Found](docs/screenshots/11-get-buku-404-rfc7807.png) |
+
+---
+
+#### Kelompok 4: Operasi Mutasi Koleksi Buku (POST, PUT, PATCH, DELETE)
+*Bukti penambahan buku dengan Header Location, penggantian utuh vs parsial, dan penghapusan terkontrol.*
+
+| Pengujian | Tangkapan Layar Respons Postman |
+| :--- | :--- |
+| **POST Tambah Buku Baru (HTTP 201 + Header Location)** | ![POST Buku 201 Created](docs/screenshots/12-post-buku-201-location.png) |
+| **POST Tambah Buku Gagal Validasi ISBN Duplikat (HTTP 422 RFC 7807 errors)** | ![POST Buku 422 Validasi](docs/screenshots/13-post-buku-422-validation.png) |
+| **PUT Penggantian Representasi Utuh (HTTP 200)** | ![PUT Buku Penuh](docs/screenshots/14-put-buku-full-replacement.png) |
+| **PATCH Pembaruan Parsial Atribut Stok (HTTP 200)** | ![PATCH Buku Parsial](docs/screenshots/15-patch-buku-partial.png) |
+| **DELETE Buku Tanpa Pinjaman Aktif (HTTP 204 No Content)** | ![DELETE Buku 204](docs/screenshots/16-delete-buku-204-no-content.png) |
+| **DELETE Buku Dengan Pinjaman Aktif Ditolak (HTTP 409 Conflict)** | ![DELETE Buku 409 Konflik](docs/screenshots/17-delete-buku-409-conflict.png) |
+
+---
+
+#### Kelompok 5: Transaksi Sirkulasi Peminjaman ACID
+*Bukti transaksi atomik peminjaman sukses (stok berkurang), penolakan stok habis, dan pinjam ganda.*
+
+| Pengujian | Tangkapan Layar Respons Postman |
+| :--- | :--- |
+| **POST Pinjam Buku Sukses (HTTP 201 Created - Stok -1)** | ![Pinjam Buku Sukses](docs/screenshots/18-post-peminjaman-201-success.png) |
+| **POST Pinjam Buku Stok Habis (HTTP 422 RFC 7807)** | ![Pinjam Stok Habis 422](docs/screenshots/19-post-peminjaman-422-out-of-stock.png) |
+| **POST Pinjam Duplikat Mahasiswa Sama (HTTP 409 Conflict)** | ![Pinjam Duplikat 409](docs/screenshots/20-post-peminjaman-409-duplicate.png) |
+
+---
+
+#### Kelompok 6: Pengembalian Buku & Pemulihan Stok Fisik
+*Bukti pengembalian sirkulasi, pemulihan stok atomik +1, dan penolakan pengembalian berulang.*
+
+| Pengujian | Tangkapan Layar Respons Postman |
+| :--- | :--- |
+| **PATCH Pengembalian Buku Sukses (HTTP 200 - Stok +1)** | ![Pengembalian Sukses](docs/screenshots/21-patch-pengembalian-200-success.png) |
+| **PATCH Pengembalian Duplikat Ditolak (HTTP 409 Conflict)** | ![Pengembalian Duplikat 409](docs/screenshots/22-patch-pengembalian-409-duplicate.png) |
+
+---
+
+#### Kelompok 7: Integrasi Service Consumer OpenLibrary
+*Bukti sinkronisasi metadata eksternal via HTTP Client dan penanganan fallback saat data tidak ditemukan.*
+
+| Pengujian | Tangkapan Layar Respons Postman |
+| :--- | :--- |
+| **GET Sinkronisasi Metadata Eksternal Buku Berhasil** | ![OpenLibrary Sinkron](docs/screenshots/23-openlibrary-sync-success.png) |
+| **GET Metadata Fallback Saat ISBN Tidak Terdaftar Global** | ![OpenLibrary Fallback](docs/screenshots/24-openlibrary-fallback.png) |
+
+---
+
+#### Kelompok 8: Pencabutan Token (*Logout*) & Penolakan Akses
+*Bukti pencabutan Bearer Token pada basis data dan pembuktian token tidak lagi dapat digunakan.*
+
+| Pengujian | Tangkapan Layar Respons Postman |
+| :--- | :--- |
+| **POST Logout Berhasil Mencabut Token (HTTP 200)** | ![Logout Revoke Token](docs/screenshots/25-post-logout-success.png) |
+| **GET Me Menggunakan Token Lama Ditolak (HTTP 401 RFC 7807)** | ![Akses Setelah Logout 401](docs/screenshots/26-get-me-after-logout-401.png) |
 
 ---
 
@@ -865,9 +982,9 @@ erDiagram
 Pengembangan **SIPUS-Del Tahap 3 (Praktikum Minggu 09)** telah berhasil mentransformasikan aplikasi perpustakaan kampus monolitik menjadi platform layanan web modern yang komprehensif, tangguh, dan memenuhi seluruh kriteria kategori **Sangat Baik (85–100)** pada rubrik evaluasi:
 
 1. **Pemenuhan Layanan Berbasis Kontrak (SOAP & WSDL)**: Layanan bebas pustaka pada `/soap/sipus` berhasil mengimplementasikan kontrak WSDL formal dengan penanganan keamanan XML (`LIBXML_NONET`) serta pemetaan SOAP Fault yang presisi terhadap masukan tidak valid.
-2. **Kematangan RESTful Web API v1**: Pembangunan REST API berhasil menerapkan semantik HTTP secara murni, mencakup perbedaan operasional yang nyata antara `PUT` (penggantian utuh) dan `PATCH` (pembaruan parsial), penyertaan Header `Location` pada status `201 Created`, status `204 No Content` tanpa body pada penghapusan buku, serta format kesalahan standar IETF **RFC 7807 Problem Details** berstatus `application/problem+json`.
-3. **Penerapan Hipermedia Dinamis (HATEOAS)**: Objek navigasi `_links` berhasil disuntikkan secara dinamis mengikuti aturan bisnis real-time, seperti menampilkan aksi peminjaman hanya saat stok fisik tersedia dan aksi pengembalian hanya saat transaksi masih aktif.
-4. **Keamanan Stateless Tanpa Sesi**: Pemisahan tegas antara sesi peramban Blade dan token API stateless melalui Laravel Sanctum menjamin isolasi hak akses, perlindungan dari serangan Session Fixation dan CSRF, serta memungkinkan pencabutan token seketika (*immediate token revocation*).
-5. **Integritas Konkurensi & ACID**: Penegakan transaksi ACID dengan *Pessimistic Row Locking* (`lockForUpdate()`) di tingkat basis data MySQL InnoDB terbukti mencegah anomali *race condition* dan menjamin stok buku tidak pernah bernilai minus meskipun diakses secara paralel pada kasus batas (*edge cases*).
-6. **Ketahanan Konsumsi Layanan Eksternal (OpenLibrary Consumer)**: Integrasi dengan REST API publik OpenLibrary terbukti memiliki toleransi kegagalan (*fault tolerance*) tinggi dengan pembatasan timeout 8 detik dan mekanisme degradasi anggun (*graceful fallback*) ke data lokal saat data upstream tidak ditemukan.
-7. **Kesiapan Pengujian & Dokumentasi Industri**: Ketersediaan dokumen formal OpenAPI 3.0 (`docs/openapi-sipus-v1.yaml`), koleksi pengujian Postman terstruktur 18 folder (`docs/SIPUS-Del-API-v1.postman_collection.json`), panduan CLI PowerShell (`docs/CLI-TESTING.md`), serta keberhasilan 100% pada 45 pengujian otomatis PHPUnit (230 assertions) membuktikan bahwa sistem siap diaudit, diuji, dan diintegrasikan secara luas pada lingkungan akademik Institut Teknologi Del.
+2. **Kematangan RESTful Web API v1**: Pembangunan REST API berhasil menerapkan semantik HTTP secara murni, mencakup perbedaan operasional yang nyata antara `PUT` (penggantian utuh) dan `PATCH` (pembaruan parsial), penyertaan Header `Location` pada status `201 Created`, status `204 No Content` tanpa body pada penghapusan buku, parameter pengurutan terstandardisasi (`sort` dan `direction`), serta format kesalahan standar IETF **RFC 7807 Problem Details** berstatus `application/problem+json` dengan properti `errors`.
+3. **Penerapan Hipermedia Dinamis (HATEOAS)**: Objek navigasi `_links` berhasil disuntikkan secara dinamis mengikuti aturan bisnis real-time, seperti menampilkan aksi `pinjam_buku` hanya saat stok fisik tersedia dan aksi `kembalikan_buku` hanya saat transaksi masih aktif.
+4. **Keamanan Stateless Tanpa Sesi**: Pemisahan tegas antara sesi peramban Blade dan token API stateless melalui Laravel Sanctum menjamin isolasi hak akses, penyimpanan token aman dalam hash SHA-256 pada tabel `personal_access_tokens`, perlindungan dari serangan Session Fixation dan CSRF, serta memungkinkan pencabutan token seketika (*immediate token revocation*).
+5. **Integritas Konkurensi & ACID**: Penegakan transaksi ACID dengan *Pessimistic Row Locking* (`lockForUpdate()`) di tingkat basis data MySQL 8.0 InnoDB terbukti mencegah anomali *race condition* dan menjamin stok buku tidak pernah bernilai minus meskipun diakses secara paralel pada kasus batas (*edge cases*).
+6. **Ketahanan Konsumsi Layanan Eksternal (OpenLibrary Consumer)**: Integrasi dengan REST API publik OpenLibrary terbukti memiliki toleransi kegagalan (*fault tolerance*) tinggi dengan pembatasan timeout 8 detik, penanganan galat terstandar RFC 7807 (502 Bad Gateway dan 504 Gateway Timeout), serta mekanisme degradasi anggun (*graceful fallback*) ke data lokal saat data upstream tidak ditemukan.
+7. **Kesiapan Pengujian & Dokumentasi Industri**: Ketersediaan dokumen formal OpenAPI 3.0 (`docs/openapi-sipus-v1.yaml`), koleksi pengujian Postman terstruktur 18 folder dengan 9 variabel dinamis (`docs/SIPUS-Del-API-v1.postman_collection.json`), panduan CLI PowerShell (`docs/CLI-TESTING.md`), serta keberhasilan 100% pada 45 pengujian otomatis PHPUnit (**232 assertions**) membuktikan bahwa sistem siap diaudit, diuji, dan diintegrasikan secara luas pada lingkungan akademik Institut Teknologi Del.

@@ -397,13 +397,25 @@ paths:
             type: integer
       responses:
         '200':
-          description: Hasil sinkronisasi metadata eksternal (synced, not_found, timeout, upstream_error).
+          description: Hasil sinkronisasi metadata eksternal (synced, not_found).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ExternalReferenceResponse'
         '404':
           $ref: '#/components/responses/NotFound'
+        '502':
+          description: Gangguan server hulu OpenLibrary (Bad Gateway RFC 7807).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '504':
+          description: Batas waktu tunggu koneksi ke OpenLibrary habis (Gateway Timeout RFC 7807).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 
   /api/v1/peminjamans:
     get:
@@ -625,7 +637,7 @@ components:
         password:
           type: string
           format: password
-          example: secret123
+          example: password123
 
     LoginResponse:
       type: object
@@ -700,15 +712,19 @@ components:
       properties:
         isbn:
           type: string
+          maxLength: 20
           example: 978-602-03-8888-1
         judul:
           type: string
+          maxLength: 255
           example: Rekayasa Perangkat Lunak Berorientasi Objek
         penulis:
           type: string
+          maxLength: 150
           example: Ian Sommerville
         penerbit:
           type: string
+          maxLength: 100
           example: Erlangga
         tahun_terbit:
           type: integer

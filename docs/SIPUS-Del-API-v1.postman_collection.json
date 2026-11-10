@@ -1,1452 +1,1700 @@
 {
-	"info": {
-		"_postman_id": "7b8d4e92-3112-4f81-a95e-14f76d4982a1",
-		"name": "SIPUS-Del API v1 (REST & SOAP)",
-		"description": "Koleksi Postman resmi untuk Praktikum PPW Minggu 09 SIPUS-Del Institut Teknologi Del (RESTful Web API, SOAP WSDL, Sanctum Bearer Token, Transaksi ACID Concurrency Locking, HATEOAS, RFC 7807 Problem Details, dan OpenLibrary Consumer).",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"variable": [
-		{
-			"key": "base_url",
-			"value": "http://localhost:8000",
-			"type": "string",
-			"description": "Alamat server lokal Laravel (default: http://localhost:8000)"
-		},
-		{
-			"key": "token",
-			"value": "",
-			"type": "string",
-			"description": "Sanctum plainTextToken yang diisi otomatis saat eksekusi request 3.1 POST Login"
-		},
-		{
-			"key": "book_id",
-			"value": "2",
-			"type": "string",
-			"description": "ID buku uji yang diperbarui otomatis saat request 6.1 POST Tambah Buku Baru berhasil"
-		},
-		{
-			"key": "loan_id",
-			"value": "1",
-			"type": "string",
-			"description": "ID transaksi peminjaman yang diperbarui otomatis saat request 11.1 POST Pinjam Buku berhasil"
-		},
-		{
-			"key": "category_id",
-			"value": "1",
-			"type": "string",
-			"description": "ID kategori master hasil seeder (default: 1 untuk KAT-RPL)"
-		},
-		{
-			"key": "github_token",
-			"value": "ghp_PLACEHOLDER_GITHUB_TOKEN_EXERCISE",
-			"type": "string",
-			"description": "Placeholder token untuk latihan pemanggilan GitHub REST API pihak ketiga (disensor)"
-		}
-	],
-	"item": [
-		{
-			"name": "1. SOAP WSDL dan SOAP Request",
-			"item": [
-				{
-					"name": "1.1 GET WSDL Contract",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/soap/sipus.wsdl",
-							"host": ["{{base_url}}"],
-							"path": ["soap", "sipus.wsdl"]
-						},
-						"description": "Mendapatkan dokumen kontrak XML WSDL untuk operasi CheckClearanceStatus pada layanan SOAP SIPUS-Del."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 200 OK\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"pm.test(\"Content-Type is text/xml\", function () {",
-									"    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"text/xml\");",
-									"});",
-									"pm.test(\"WSDL contains definitions and CheckClearanceStatus\", function () {",
-									"    var xml = pm.response.text();",
-									"    pm.expect(xml).to.include(\"definitions\");",
-									"    pm.expect(xml).to.include(\"CheckClearanceStatus\");",
-									"    pm.expect(xml).to.include(\"CheckClearanceStatusRequest\");",
-									"    pm.expect(xml).to.include(\"CheckClearanceStatusResponse\");",
-									"    pm.expect(xml).to.include(\"LibraryPortType\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				},
-				{
-					"name": "1.2 POST SOAP Clearance Check (NIM Tanpa Pinjaman Aktif)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "text/xml; charset=utf-8"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:sip=\"http://sipus.del.ac.id/soap\">\n    <soapenv:Header/>\n    <soapenv:Body>\n        <sip:CheckClearanceStatusRequest>\n            <sip:nim_peminjam>12S24012</sip:nim_peminjam>\n        </sip:CheckClearanceStatusRequest>\n    </soapenv:Body>\n</soapenv:Envelope>"
-						},
-						"url": {
-							"raw": "{{base_url}}/soap/sipus",
-							"host": ["{{base_url}}"],
-							"path": ["soap", "sipus"]
-						},
-						"description": "Mengirimkan SOAP Envelope untuk memeriksa status bebas pustaka mahasiswa NIM 12S24012 (tanpa pinjaman aktif, is_cleared = true)."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 200 OK\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"pm.test(\"Content-Type is text/xml\", function () {",
-									"    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"text/xml\");",
-									"});",
-									"pm.test(\"SOAP Response indicates is_cleared true\", function () {",
-									"    var xml = pm.response.text();",
-									"    pm.expect(xml).to.include(\"<tns:active_loans>0</tns:active_loans>\");",
-									"    pm.expect(xml).to.include(\"<tns:is_cleared>true</tns:is_cleared>\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				},
-				{
-					"name": "1.3 POST SOAP Clearance Check (NIM Memiliki Pinjaman Aktif)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "text/xml; charset=utf-8"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:sip=\"http://sipus.del.ac.id/soap\">\n    <soapenv:Header/>\n    <soapenv:Body>\n        <sip:CheckClearanceStatusRequest>\n            <sip:nim_peminjam>12S24001</sip:nim_peminjam>\n        </sip:CheckClearanceStatusRequest>\n    </soapenv:Body>\n</soapenv:Envelope>"
-						},
-						"url": {
-							"raw": "{{base_url}}/soap/sipus",
-							"host": ["{{base_url}}"],
-							"path": ["soap", "sipus"]
-						},
-						"description": "Menguji mahasiswa NIM 12S24001 hasil seeder yang masih memiliki pinjaman aktif (is_cleared = false)."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 200 OK\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"pm.test(\"SOAP Response indicates is_cleared false\", function () {",
-									"    var xml = pm.response.text();",
-									"    pm.expect(xml).to.include(\"<tns:is_cleared>false</tns:is_cleared>\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "2. SOAP Fault",
-			"item": [
-				{
-					"name": "2.1 POST SOAP Fault - Malformed XML",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "text/xml; charset=utf-8"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "<soapenv:Envelope><soapenv:Body><tagTidakTertutup></soapenv:Body>"
-						},
-						"url": {
-							"raw": "{{base_url}}/soap/sipus",
-							"host": ["{{base_url}}"],
-							"path": ["soap", "sipus"]
-						},
-						"description": "Menguji respons SOAP Fault pada payload XML yang rusak (malformed)."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 400 Bad Request\", function () {",
-									"    pm.response.to.have.status(400);",
-									"});",
-									"pm.test(\"SOAP Fault structure returned\", function () {",
-									"    var xml = pm.response.text();",
-									"    pm.expect(xml).to.include(\"soapenv:Fault\");",
-									"    pm.expect(xml).to.include(\"XML tidak valid atau malformed\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				},
-				{
-					"name": "2.2 POST SOAP Fault - Missing NIM",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "text/xml; charset=utf-8"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:sip=\"http://sipus.del.ac.id/soap\">\n    <soapenv:Body>\n        <sip:CheckClearanceStatusRequest>\n            <sip:field_tidak_dikenal>12S24012</sip:field_tidak_dikenal>\n        </sip:CheckClearanceStatusRequest>\n    </soapenv:Body>\n</soapenv:Envelope>"
-						},
-						"url": {
-							"raw": "{{base_url}}/soap/sipus",
-							"host": ["{{base_url}}"],
-							"path": ["soap", "sipus"]
-						},
-						"description": "Menguji respons SOAP Fault saat elemen nim_peminjam tidak ditemukan."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 400 Bad Request\", function () {",
-									"    pm.response.to.have.status(400);",
-									"});",
-									"pm.test(\"SOAP Fault indicates missing NIM\", function () {",
-									"    var xml = pm.response.text();",
-									"    pm.expect(xml).to.include(\"Elemen nim_peminjam tidak ditemukan\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				},
-				{
-					"name": "2.3 POST SOAP Fault - Empty NIM",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "text/xml; charset=utf-8"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:sip=\"http://sipus.del.ac.id/soap\">\n    <soapenv:Body>\n        <sip:CheckClearanceStatusRequest>\n            <sip:nim_peminjam>   </sip:nim_peminjam>\n        </sip:CheckClearanceStatusRequest>\n    </soapenv:Body>\n</soapenv:Envelope>"
-						},
-						"url": {
-							"raw": "{{base_url}}/soap/sipus",
-							"host": ["{{base_url}}"],
-							"path": ["soap", "sipus"]
-						},
-						"description": "Menguji respons SOAP Fault saat elemen nim_peminjam dikirim dalam kondisi kosong / whitespace."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 400 Bad Request\", function () {",
-									"    pm.response.to.have.status(400);",
-									"});",
-									"pm.test(\"SOAP Fault indicates empty NIM\", function () {",
-									"    var xml = pm.response.text();",
-									"    pm.expect(xml).to.include(\"NIM peminjam tidak boleh kosong\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				},
-				{
-					"name": "2.4 POST SOAP Fault - Unknown Operation",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "text/xml; charset=utf-8"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:sip=\"http://sipus.del.ac.id/soap\">\n    <soapenv:Body>\n        <sip:OperasiTidakDikenal>\n            <sip:nim_peminjam>12S24012</sip:nim_peminjam>\n        </sip:OperasiTidakDikenal>\n    </soapenv:Body>\n</soapenv:Envelope>"
-						},
-						"url": {
-							"raw": "{{base_url}}/soap/sipus",
-							"host": ["{{base_url}}"],
-							"path": ["soap", "sipus"]
-						},
-						"description": "Menguji respons SOAP Fault saat operasi SOAP yang diminta tidak ada dalam kontrak WSDL."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 400 Bad Request\", function () {",
-									"    pm.response.to.have.status(400);",
-									"});",
-									"pm.test(\"SOAP Fault indicates unknown operation\", function () {",
-									"    var xml = pm.response.text();",
-									"    pm.expect(xml).to.include(\"tidak dikenali\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "3. API Login",
-			"item": [
-				{
-					"name": "3.1 POST Login Pustakawan (Sukses)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"pustakawan@del.ac.id\",\n    \"password\": \"password123\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/v1/auth/login",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "auth", "login"]
-						},
-						"description": "Autentikasi pustakawan dan otomatis menyimpan token ke collection variable 'token'."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 200 OK\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"var jsonData = pm.response.json();",
-									"pm.test(\"Login successful and Bearer token returned\", function () {",
-									"    pm.expect(jsonData.success).to.be.true;",
-									"    pm.expect(jsonData.data.token).to.not.be.empty;",
-									"    pm.expect(jsonData.data.token_type).to.eql(\"Bearer\");",
-									"    pm.environment.set(\"token\", jsonData.data.token);",
-									"    pm.collectionVariables.set(\"token\", jsonData.data.token);",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				},
-				{
-					"name": "3.2 POST Login Password Salah (401 RFC 7807)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"pustakawan@del.ac.id\",\n    \"password\": \"wrong-password\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/v1/auth/login",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "auth", "login"]
-						},
-						"description": "Menguji penolakan autentikasi saat kata sandi salah dengan format RFC 7807 Problem Details."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 401 Unauthorized\", function () {",
-									"    pm.response.to.have.status(401);",
-									"});",
-									"pm.test(\"Content-Type is application/problem+json\", function () {",
-									"    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"RFC 7807 fields present\", function () {",
-									"    pm.expect(json.title).to.eql(\"Unauthorized\");",
-									"    pm.expect(json.status).to.eql(401);",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "4. API Me",
-			"item": [
-				{
-					"name": "4.1 GET Profil Pustakawan (Me)",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/auth/me",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "auth", "me"]
-						},
-						"description": "Mengambil identitas pustakawan yang sedang aktif menggunakan Bearer Token tanpa mengekspos kata sandi."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 200 OK\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"Returns user identity without password\", function () {",
-									"    pm.expect(json.success).to.be.true;",
-									"    pm.expect(json.data.email).to.eql(\"pustakawan@del.ac.id\");",
-									"    pm.expect(json.data).to.not.have.property(\"password\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "5. GET katalog dan pagination",
-			"item": [
-				{
-					"name": "5.1 GET Katalog Buku (Search, Filter, Sort, Pagination)",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/bukus?search=&kategori_id=&tersedia=1&sort=judul&direction=asc&per_page=10",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "bukus"],
-							"query": [
-								{"key": "search", "value": ""},
-								{"key": "kategori_id", "value": ""},
-								{"key": "tersedia", "value": "1"},
-								{"key": "sort", "value": "judul"},
-								{"key": "direction", "value": "asc"},
-								{"key": "per_page", "value": "10"}
-							]
-						},
-						"description": "Mengambil katalog buku publik dengan filter stok tersedia, pengurutan whitelist, metadata pagination, dan tautan HATEOAS."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 200 OK\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"Pagination meta and links present\", function () {",
-									"    pm.expect(json).to.have.property(\"meta\");",
-									"    pm.expect(json).to.have.property(\"links\");",
-									"    pm.expect(json.meta.per_page).to.eql(10);",
-									"});",
-									"pm.test(\"HATEOAS links present in items\", function () {",
-									"    pm.expect(json.data[0]).to.have.property(\"_links\");",
-									"    pm.expect(json.data[0]._links).to.have.property(\"self\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				},
-				{
-					"name": "5.2 GET Detail Buku by ID",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/bukus/2",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "bukus", "2"]
-						},
-						"description": "Menampilkan detail lengkap buku ID 2 hasil seeder beserta objek kategori, riwayat peminjaman, dan HATEOAS."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 200 OK\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"Book detail and HATEOAS verified\", function () {",
-									"    pm.expect(json.data.id).to.eql(2);",
-									"    pm.expect(json.data).to.have.property(\"kategori\");",
-									"    pm.expect(json.data._links).to.have.property(\"self\");",
-									"    pm.expect(json.data._links).to.have.property(\"pinjam_buku\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				},
-				{
-					"name": "5.3 GET Detail Buku Tidak Ditemukan (404 RFC 7807)",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/bukus/999999",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "bukus", "999999"]
-						},
-						"description": "Menguji respons RFC 7807 saat ID buku yang diminta tidak ada dalam basis data."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 404 Not Found\", function () {",
-									"    pm.response.to.have.status(404);",
-									"});",
-									"pm.test(\"Content-Type is application/problem+json\", function () {",
-									"    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"RFC 7807 Not Found structure\", function () {",
-									"    pm.expect(json.status).to.eql(404);",
-									"    pm.expect(json.title).to.eql(\"Not Found\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "6. POST buku",
-			"item": [
-				{
-					"name": "6.1 POST Tambah Buku Baru",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"isbn\": \"978-602-03-TEST-{{$randomInt}}\",\n    \"judul\": \"Arsitektur REST API & Concurrency\",\n    \"penulis\": \"Senior Backend Del\",\n    \"penerbit\": \"Del Publishing\",\n    \"tahun_terbit\": 2024,\n    \"kategori_id\": {{category_id}},\n    \"stok\": 5,\n    \"sinopsis\": \"Buku acuan perancangan sistem RESTful modern berkecepatan tinggi.\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/v1/bukus",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "bukus"]
-						},
-						"description": "Menambahkan koleksi buku baru, memverifikasi header Location, dan menyimpan ID buku baru ke variabel book_id."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 201 Created\", function () {",
-									"    pm.response.to.have.status(201);",
-									"});",
-									"pm.test(\"Location header exists\", function () {",
-									"    pm.expect(pm.response.headers.has(\"Location\")).to.be.true;",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"Book ID saved to variables\", function () {",
-									"    pm.expect(json.data.id).to.be.a(\"number\");",
-									"    pm.environment.set(\"book_id\", json.data.id);",
-									"    pm.collectionVariables.set(\"book_id\", json.data.id);",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				},
-				{
-					"name": "6.2 POST Tambah Buku Validasi Gagal (422 RFC 7807)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"isbn\": \"978-602-03-8800-1\",\n    \"judul\": \"Judul Duplikat ISBN\",\n    \"penulis\": \"Penulis\",\n    \"penerbit\": \"Penerbit\",\n    \"tahun_terbit\": 2024,\n    \"kategori_id\": 1,\n    \"stok\": 2\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/v1/bukus",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "bukus"]
-						},
-						"description": "Menguji penolakan validasi pada ISBN yang sudah terdaftar sebelumnya (ISBN seeder buku 1)."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 422 Unprocessable Content\", function () {",
-									"    pm.response.to.have.status(422);",
-									"});",
-									"pm.test(\"Content-Type is application/problem+json\", function () {",
-									"    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"Validation error specifies isbn\", function () {",
-									"    pm.expect(json.status).to.eql(422);",
-									"    pm.expect(json.title).to.eql(\"Unprocessable Content\");",
-									"    pm.expect(json.errors).to.have.property(\"isbn\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "7. PUT buku",
-			"item": [
-				{
-					"name": "7.1 PUT Ganti Buku Penuh (Full Replacement)",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"isbn\": \"978-602-03-PUT-{{$randomInt}}\",\n    \"judul\": \"Arsitektur REST API Modern (Revisi Penuh)\",\n    \"penulis\": \"Senior Backend Del PhD\",\n    \"penerbit\": \"Del Press International\",\n    \"tahun_terbit\": 2024,\n    \"kategori_id\": {{category_id}},\n    \"stok\": 8,\n    \"sinopsis\": \"Edisi revisi penuh komprehensif penggantian total.\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/v1/bukus/{{book_id}}",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "bukus", "{{book_id}}"]
-						},
-						"description": "Menggantikan seluruh representasi data buku uji hasil POST 6.1 secara penuh (PUT)."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 200 OK\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"Data updated completely\", function () {",
-									"    pm.expect(json.data.judul).to.include(\"Revisi Penuh\");",
-									"    pm.expect(json.data.stok).to.eql(8);",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				},
-				{
-					"name": "7.2 PUT Ganti Buku Field Tidak Lengkap (422 RFC 7807)",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"judul\": \"Judul Baru Saja Tanpa Atribut Wajib Lain\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/v1/bukus/{{book_id}}",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "bukus", "{{book_id}}"]
-						},
-						"description": "Membuktikan semantik PUT: menolak penggantian representasi jika field wajib tidak dikirimkan."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 422 Unprocessable Content\", function () {",
-									"    pm.response.to.have.status(422);",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"Missing attributes reported\", function () {",
-									"    pm.expect(json.errors).to.have.property(\"isbn\");",
-									"    pm.expect(json.errors).to.have.property(\"penulis\");",
-									"    pm.expect(json.errors).to.have.property(\"stok\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "8. PATCH buku",
-			"item": [
-				{
-					"name": "8.1 PATCH Pembaruan Parsial Buku",
-					"request": {
-						"method": "PATCH",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"stok\": 12\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/v1/bukus/{{book_id}}",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "bukus", "{{book_id}}"]
-						},
-						"description": "Hanya memperbarui atribut stok tanpa harus mengirim atribut wajib lainnya (PATCH semantik parsial)."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 200 OK\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"Stock updated while title preserved\", function () {",
-									"    pm.expect(json.data.stok).to.eql(12);",
-									"    pm.expect(json.data.judul).to.include(\"Revisi Penuh\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "9. DELETE buku",
-			"item": [
-				{
-					"name": "9.1 DELETE Buku Tanpa Pinjaman Aktif (204 No Content)",
-					"request": {
-						"method": "DELETE",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/bukus/{{book_id}}",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "bukus", "{{book_id}}"]
-						},
-						"description": "Menghapus buku uji baru (hasil POST 6.1) yang tidak memiliki peminjaman aktif. Mengembalikan 204 No Content tanpa body."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 204 No Content\", function () {",
-									"    pm.response.to.have.status(204);",
-									"});",
-									"pm.test(\"Response body is empty\", function () {",
-									"    pm.expect(pm.response.text()).to.be.empty;",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				},
-				{
-					"name": "9.2 DELETE Buku Dengan Pinjaman Aktif (409 Conflict)",
-					"request": {
-						"method": "DELETE",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/bukus/3",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "bukus", "3"]
-						},
-						"description": "Menguji penolakan penghapusan pada buku ID 3 hasil seeder yang memiliki rekam transaksi peminjaman aktif 'dipinjam' (409 Conflict RFC 7807)."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 409 Conflict\", function () {",
-									"    pm.response.to.have.status(409);",
-									"});",
-									"pm.test(\"Content-Type is application/problem+json\", function () {",
-									"    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"Conflict indicates active loans\", function () {",
-									"    pm.expect(json.status).to.eql(409);",
-									"    pm.expect(json.title).to.eql(\"Conflict\");",
-									"    pm.expect(json.detail).to.include(\"peminjaman aktif\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "10. GET peminjaman",
-			"item": [
-				{
-					"name": "10.1 GET Daftar Sirkulasi Peminjaman",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/peminjamans?status=dipinjam&per_page=10",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "peminjamans"],
-							"query": [
-								{"key": "status", "value": "dipinjam"},
-								{"key": "per_page", "value": "10"}
-							]
-						},
-						"description": "Mendapatkan daftar transaksi peminjaman aktif terpaginasi dengan relasi buku dan kategori."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 200 OK\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"Eager loaded relations verified\", function () {",
-									"    pm.expect(json.success).to.be.true;",
-									"    if (json.data.length > 0) {",
-									"        pm.expect(json.data[0]).to.have.property(\"buku\");",
-									"    }",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "11. POST peminjaman sukses",
-			"item": [
-				{
-					"name": "11.1 POST Pinjam Buku Sukses (201 Created)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"buku_id\": 2,\n    \"nim_peminjam\": \"12S24012\",\n    \"nama_peminjam\": \"Choqy Pananda Sirait\",\n    \"durasi_hari\": 7\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/v1/peminjamans",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "peminjamans"]
-						},
-						"description": "Transaksi atomik peminjaman buku ID 2 (stok awal 1) oleh NIM 12S24012 dengan penguncian lockForUpdate. Stok berkurang menjadi 0 dan ID disimpan ke loan_id."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 201 Created\", function () {",
-									"    pm.response.to.have.status(201);",
-									"});",
-									"pm.test(\"Location header exists\", function () {",
-									"    pm.expect(pm.response.headers.has(\"Location\")).to.be.true;",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"Loan record created and stock decremented\", function () {",
-									"    pm.expect(json.data.buku_id).to.eql(2);",
-									"    pm.expect(json.data.nim_peminjam).to.eql(\"12S24012\");",
-									"    pm.expect(json.data.status).to.eql(\"dipinjam\");",
-									"    pm.expect(json.data.kode_pinjam).to.include(\"PJ-\");",
-									"    pm.expect(json.data._links).to.have.property(\"kembalikan_buku\");",
-									"    pm.environment.set(\"loan_id\", json.data.id);",
-									"    pm.collectionVariables.set(\"loan_id\", json.data.id);",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "12. Peminjaman dengan stok habis",
-			"item": [
-				{
-					"name": "12.1 POST Pinjam Buku Stok Habis (422 RFC 7807)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"buku_id\": 1,\n    \"nim_peminjam\": \"12S24012\",\n    \"nama_peminjam\": \"Choqy Pananda Sirait\",\n    \"durasi_hari\": 7\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/v1/peminjamans",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "peminjamans"]
-						},
-						"description": "Menguji pembatalan transaksi ACID ketika meminjam buku ID 1 yang stoknya bernilai nol (422 Unprocessable Content RFC 7807)."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 422 Unprocessable Content\", function () {",
-									"    pm.response.to.have.status(422);",
-									"});",
-									"pm.test(\"Content-Type is application/problem+json\", function () {",
-									"    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"RFC 7807 reports out of stock\", function () {",
-									"    pm.expect(json.status).to.eql(422);",
-									"    pm.expect(json.title).to.eql(\"Unprocessable Content\");",
-									"    pm.expect(json.detail).to.include(\"telah habis\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "13. Peminjaman duplikat",
-			"item": [
-				{
-					"name": "13.1 POST Peminjaman Buku Sama Ganda (409 Conflict)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"buku_id\": 2,\n    \"nim_peminjam\": \"12S24012\",\n    \"nama_peminjam\": \"Choqy Pananda Sirait\",\n    \"durasi_hari\": 7\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/v1/peminjamans",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "peminjamans"]
-						},
-						"description": "Menguji pembatalan transaksi peminjaman ganda untuk mahasiswa NIM 12S24012 pada buku ID 2 yang masih berstatus dipinjam (409 Conflict RFC 7807)."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 409 Conflict\", function () {",
-									"    pm.response.to.have.status(409);",
-									"});",
-									"pm.test(\"Content-Type is application/problem+json\", function () {",
-									"    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"RFC 7807 reports active loan conflict\", function () {",
-									"    pm.expect(json.status).to.eql(409);",
-									"    pm.expect(json.title).to.eql(\"Conflict\");",
-									"    pm.expect(json.detail).to.include(\"masih meminjam buku ini\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "14. PATCH pengembalian",
-			"item": [
-				{
-					"name": "14.1 PATCH Pengembalian Buku (Sukses)",
-					"request": {
-						"method": "PATCH",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/peminjamans/{{loan_id}}/kembalikan",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "peminjamans", "{{loan_id}}", "kembalikan"]
-						},
-						"description": "Mengembalikan buku ID loan_id secara atomik, mengubah status menjadi dikembalikan, mengisi tanggal_kembali, dan memulihkan stok buku."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 200 OK\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"Status updated to dikembalikan and date stamped\", function () {",
-									"    pm.expect(json.data.status).to.eql(\"dikembalikan\");",
-									"    pm.expect(json.data.tanggal_kembali).to.not.be.null;",
-									"    pm.expect(json.data._links).to.not.have.property(\"kembalikan_buku\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "15. Pengembalian duplikat",
-			"item": [
-				{
-					"name": "15.1 PATCH Pengembalian Duplikat (409 Conflict)",
-					"request": {
-						"method": "PATCH",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/peminjamans/{{loan_id}}/kembalikan",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "peminjamans", "{{loan_id}}", "kembalikan"]
-						},
-						"description": "Menguji idempotensi transaksi: pengembalian kedua pada transaksi yang sama ditolak (409 Conflict) dan stok tidak bertambah dua kali."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 409 Conflict\", function () {",
-									"    pm.response.to.have.status(409);",
-									"});",
-									"pm.test(\"Content-Type is application/problem+json\", function () {",
-									"    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"Conflict indicates loan already returned\", function () {",
-									"    pm.expect(json.status).to.eql(409);",
-									"    pm.expect(json.title).to.eql(\"Conflict\");",
-									"    pm.expect(json.detail).to.include(\"sudah pernah dikembalikan\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "16. OpenLibrary Consumer",
-			"item": [
-				{
-					"name": "16.1 GET Referensi Metadata Eksternal Buku",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/bukus/2/referensi-eksternal",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "bukus", "2", "referensi-eksternal"]
-						},
-						"description": "Mengambil metadata eksternal buku hasil seeder ID 2 dari OpenLibrary berdasarkan nomor ISBN menggunakan Laravel HTTP Client timeout 8 detik."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 200 OK\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"OpenLibrary synchronization structure is valid\", function () {",
-									"    pm.expect(json.success).to.be.true;",
-									"    pm.expect(json.data).to.have.property(\"status_sinkronisasi\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "17. GitHub REST API exercise",
-			"item": [
-				{
-					"name": "17.1 GET GitHub Authenticated User (Exercise)",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{github_token}}"
-							},
-							{
-								"key": "User-Agent",
-								"value": "SIPUS-Del-Tester"
-							},
-							{
-								"key": "Accept",
-								"value": "application/vnd.github.v3+json"
-							}
-						],
-						"url": {
-							"raw": "https://api.github.com/user",
-							"protocol": "https",
-							"host": ["api", "github", "com"],
-							"path": ["user"]
-						},
-						"description": "Latihan pemanggilan API pihak ketiga GitHub REST API v3 dengan placeholder token sensor."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"GitHub API returns 401 Unauthorized for placeholder token\", function () {",
-									"    pm.response.to.have.status(401);",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "18. Logout Pustakawan",
-			"item": [
-				{
-					"name": "18.1 POST Logout (Revoke Token)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/auth/logout",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "auth", "logout"]
-						},
-						"description": "Mencabut token aktif pustakawan (Sanctum revocation) di akhir pengujian."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 200 OK\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"Token revoked successfully\", function () {",
-									"    pm.expect(json.success).to.be.true;",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				},
-				{
-					"name": "18.2 GET Me Setelah Logout Ditolak (401 RFC 7807)",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/auth/me",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "auth", "me"]
-						},
-						"description": "Membuktikan bahwa Bearer Token yang telah dicabut tidak dapat lagi digunakan (401 Unauthorized RFC 7807)."
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 401 Unauthorized\", function () {",
-									"    pm.response.to.have.status(401);",
-									"});",
-									"var json = pm.response.json();",
-									"pm.test(\"RFC 7807 indicates revoked token\", function () {",
-									"    pm.expect(json.status).to.eql(401);",
-									"    pm.expect(json.title).to.eql(\"Unauthorized\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					]
-				}
-			]
-		}
-	]
+  "info": {
+    "_postman_id": "7b8d4e92-3112-4f81-a95e-14f76d4982a1",
+    "name": "SIPUS-Del API v1 (REST & SOAP)",
+    "description": "Koleksi Postman resmi untuk Praktikum PPW Minggu 09 SIPUS-Del Institut Teknologi Del (RESTful Web API, SOAP WSDL, Sanctum Bearer Token, Transaksi ACID Concurrency Locking, HATEOAS, RFC 7807 Problem Details, dan OpenLibrary Consumer).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string",
+      "description": "Alamat server lokal Laravel (default: http://localhost:8000)"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "Sanctum plainTextToken yang diisi otomatis saat eksekusi request 3.1 POST Login"
+    },
+    {
+      "key": "book_id",
+      "value": "",
+      "type": "string",
+      "description": "ID buku uji baru yang diperbarui otomatis saat request 6.1 POST Tambah Buku Baru berhasil"
+    },
+    {
+      "key": "loan_id",
+      "value": "",
+      "type": "string",
+      "description": "ID transaksi peminjaman baru yang diperbarui otomatis saat request 11.1 POST Pinjam Buku berhasil"
+    },
+    {
+      "key": "category_id",
+      "value": "1",
+      "type": "string",
+      "description": "ID kategori master hasil seeder (default: 1 untuk KAT-RPL)"
+    },
+    {
+      "key": "reference_book_id",
+      "value": "2",
+      "type": "string",
+      "description": "ID buku seeder untuk pengujian sinkronisasi OpenLibrary (default: 2)"
+    },
+    {
+      "key": "out_of_stock_book_id",
+      "value": "1",
+      "type": "string",
+      "description": "ID buku seeder dengan stok 0 untuk pengujian kasus batas stok habis (default: 1)"
+    },
+    {
+      "key": "available_book_id",
+      "value": "2",
+      "type": "string",
+      "description": "ID buku seeder dengan stok tersedia untuk pengujian transaksi peminjaman sukses (default: 2)"
+    },
+    {
+      "key": "active_loan_book_id",
+      "value": "3",
+      "type": "string",
+      "description": "ID buku seeder yang memiliki peminjaman aktif oleh NIM 12S24001 untuk pengujian 409 Conflict (default: 3)"
+    },
+    {
+      "key": "github_token",
+      "value": "",
+      "type": "string",
+      "description": "Personal Access Token (PAT) pengguna untuk latihan memanggil GitHub REST API pihak ketiga (dikosongkan secara default demi keamanan)"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. SOAP WSDL dan SOAP Request",
+      "item": [
+        {
+          "name": "1.1 GET WSDL Contract",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/soap/sipus.wsdl",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "soap",
+                "sipus.wsdl"
+              ]
+            },
+            "description": "Mendapatkan dokumen kontrak XML WSDL untuk operasi CheckClearanceStatus pada layanan SOAP SIPUS-Del."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Content-Type is text/xml\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"text/xml\");",
+                  "});",
+                  "pm.test(\"WSDL contains definitions and CheckClearanceStatus\", function () {",
+                  "    var xml = pm.response.text();",
+                  "    pm.expect(xml).to.include(\"definitions\");",
+                  "    pm.expect(xml).to.include(\"CheckClearanceStatus\");",
+                  "    pm.expect(xml).to.include(\"CheckClearanceStatusRequest\");",
+                  "    pm.expect(xml).to.include(\"CheckClearanceStatusResponse\");",
+                  "    pm.expect(xml).to.include(\"LibraryPortType\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 POST SOAP Clearance Check (NIM Tanpa Pinjaman Aktif)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/xml; charset=utf-8"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:sip=\"http://sipus.del.ac.id/soap\">\n    <soapenv:Header/>\n    <soapenv:Body>\n        <sip:CheckClearanceStatusRequest>\n            <sip:nim_peminjam>12S24012</sip:nim_peminjam>\n        </sip:CheckClearanceStatusRequest>\n    </soapenv:Body>\n</soapenv:Envelope>"
+            },
+            "url": {
+              "raw": "{{base_url}}/soap/sipus",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "soap",
+                "sipus"
+              ]
+            },
+            "description": "Mengirimkan SOAP Envelope untuk memeriksa status bebas pustaka mahasiswa NIM 12S24012 (tanpa pinjaman aktif, is_cleared = true)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Content-Type is text/xml\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"text/xml\");",
+                  "});",
+                  "pm.test(\"SOAP Response indicates is_cleared true\", function () {",
+                  "    var xml = pm.response.text();",
+                  "    pm.expect(xml).to.include(\"<tns:active_loans>0</tns:active_loans>\");",
+                  "    pm.expect(xml).to.include(\"<tns:is_cleared>true</tns:is_cleared>\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.3 POST SOAP Clearance Check (NIM Memiliki Pinjaman Aktif)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/xml; charset=utf-8"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:sip=\"http://sipus.del.ac.id/soap\">\n    <soapenv:Header/>\n    <soapenv:Body>\n        <sip:CheckClearanceStatusRequest>\n            <sip:nim_peminjam>12S24001</sip:nim_peminjam>\n        </sip:CheckClearanceStatusRequest>\n    </soapenv:Body>\n</soapenv:Envelope>"
+            },
+            "url": {
+              "raw": "{{base_url}}/soap/sipus",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "soap",
+                "sipus"
+              ]
+            },
+            "description": "Menguji mahasiswa NIM 12S24001 hasil seeder yang masih memiliki pinjaman aktif (is_cleared = false)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"SOAP Response indicates is_cleared false\", function () {",
+                  "    var xml = pm.response.text();",
+                  "    pm.expect(xml).to.include(\"<tns:is_cleared>false</tns:is_cleared>\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. SOAP Fault",
+      "item": [
+        {
+          "name": "2.1 POST SOAP Fault - Malformed XML",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/xml; charset=utf-8"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "<soapenv:Envelope><soapenv:Body><tagTidakTertutup></soapenv:Body>"
+            },
+            "url": {
+              "raw": "{{base_url}}/soap/sipus",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "soap",
+                "sipus"
+              ]
+            },
+            "description": "Menguji respons SOAP Fault pada payload XML yang rusak (malformed)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"SOAP Fault structure returned\", function () {",
+                  "    var xml = pm.response.text();",
+                  "    pm.expect(xml).to.include(\"soapenv:Fault\");",
+                  "    pm.expect(xml).to.include(\"XML tidak valid atau malformed\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 POST SOAP Fault - Missing NIM",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/xml; charset=utf-8"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:sip=\"http://sipus.del.ac.id/soap\">\n    <soapenv:Body>\n        <sip:CheckClearanceStatusRequest>\n            <sip:field_tidak_dikenal>12S24012</sip:field_tidak_dikenal>\n        </sip:CheckClearanceStatusRequest>\n    </soapenv:Body>\n</soapenv:Envelope>"
+            },
+            "url": {
+              "raw": "{{base_url}}/soap/sipus",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "soap",
+                "sipus"
+              ]
+            },
+            "description": "Menguji respons SOAP Fault saat elemen nim_peminjam tidak ditemukan."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"SOAP Fault indicates missing NIM\", function () {",
+                  "    var xml = pm.response.text();",
+                  "    pm.expect(xml).to.include(\"Elemen nim_peminjam tidak ditemukan\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.3 POST SOAP Fault - Empty NIM",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/xml; charset=utf-8"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:sip=\"http://sipus.del.ac.id/soap\">\n    <soapenv:Body>\n        <sip:CheckClearanceStatusRequest>\n            <sip:nim_peminjam>   </sip:nim_peminjam>\n        </sip:CheckClearanceStatusRequest>\n    </soapenv:Body>\n</soapenv:Envelope>"
+            },
+            "url": {
+              "raw": "{{base_url}}/soap/sipus",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "soap",
+                "sipus"
+              ]
+            },
+            "description": "Menguji respons SOAP Fault saat elemen nim_peminjam dikirim dalam kondisi kosong / whitespace."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"SOAP Fault indicates empty NIM\", function () {",
+                  "    var xml = pm.response.text();",
+                  "    pm.expect(xml).to.include(\"NIM peminjam tidak boleh kosong\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.4 POST SOAP Fault - Unknown Operation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/xml; charset=utf-8"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:sip=\"http://sipus.del.ac.id/soap\">\n    <soapenv:Body>\n        <sip:OperasiTidakDikenal>\n            <sip:nim_peminjam>12S24012</sip:nim_peminjam>\n        </sip:OperasiTidakDikenal>\n    </soapenv:Body>\n</soapenv:Envelope>"
+            },
+            "url": {
+              "raw": "{{base_url}}/soap/sipus",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "soap",
+                "sipus"
+              ]
+            },
+            "description": "Menguji respons SOAP Fault saat operasi SOAP yang diminta tidak ada dalam kontrak WSDL."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"SOAP Fault indicates unknown operation\", function () {",
+                  "    var xml = pm.response.text();",
+                  "    pm.expect(xml).to.include(\"tidak dikenali\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. API Login",
+      "item": [
+        {
+          "name": "3.1 POST Login Pustakawan (Sukses)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"pustakawan@del.ac.id\",\n    \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Autentikasi pustakawan dan otomatis menyimpan token ke collection variable 'token'."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Login successful and Bearer token returned\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data.token).to.not.be.empty;",
+                  "    pm.expect(jsonData.data.token_type).to.eql(\"Bearer\");",
+                  "    pm.environment.set(\"token\", jsonData.data.token);",
+                  "    pm.collectionVariables.set(\"token\", jsonData.data.token);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.2 POST Login Password Salah (401 RFC 7807)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"pustakawan@del.ac.id\",\n    \"password\": \"wrong-password\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Menguji penolakan autentikasi saat kata sandi salah dengan format RFC 7807 Problem Details."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test(\"Content-Type is application/problem+json\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"RFC 7807 fields present\", function () {",
+                  "    pm.expect(json.title).to.eql(\"Unauthorized\");",
+                  "    pm.expect(json.status).to.eql(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. API Me",
+      "item": [
+        {
+          "name": "4.1 GET Profil Pustakawan (Me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Mengambil identitas pustakawan yang sedang aktif menggunakan Bearer Token tanpa mengekspos kata sandi."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Returns user identity without password\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.email).to.eql(\"pustakawan@del.ac.id\");",
+                  "    pm.expect(json.data).to.not.have.property(\"password\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. GET katalog dan pagination",
+      "item": [
+        {
+          "name": "5.1 GET Katalog Buku (Search, Filter, Sort, Pagination)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/bukus?search=&kategori_id=&tersedia=1&sort=judul&direction=asc&per_page=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bukus"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "kategori_id",
+                  "value": ""
+                },
+                {
+                  "key": "tersedia",
+                  "value": "1"
+                },
+                {
+                  "key": "sort",
+                  "value": "judul"
+                },
+                {
+                  "key": "direction",
+                  "value": "asc"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Mengambil katalog buku publik dengan filter stok tersedia, pengurutan whitelist, metadata pagination, dan tautan HATEOAS."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Pagination meta and links present\", function () {",
+                  "    pm.expect(json).to.have.property(\"meta\");",
+                  "    pm.expect(json).to.have.property(\"links\");",
+                  "    pm.expect(json.meta.per_page).to.eql(10);",
+                  "});",
+                  "pm.test(\"HATEOAS links present in items\", function () {",
+                  "    pm.expect(json.data[0]).to.have.property(\"_links\");",
+                  "    pm.expect(json.data[0]._links).to.have.property(\"self\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.2 GET Detail Buku by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/bukus/2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bukus",
+                "2"
+              ]
+            },
+            "description": "Menampilkan detail lengkap buku ID 2 hasil seeder beserta objek kategori, riwayat peminjaman, dan HATEOAS."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Book detail and HATEOAS verified\", function () {",
+                  "    pm.expect(json.data.id).to.eql(2);",
+                  "    pm.expect(json.data).to.have.property(\"kategori\");",
+                  "    pm.expect(json.data._links).to.have.property(\"self\");",
+                  "    pm.expect(json.data._links).to.have.property(\"pinjam_buku\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.3 GET Detail Buku Tidak Ditemukan (404 RFC 7807)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/bukus/999999",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bukus",
+                "999999"
+              ]
+            },
+            "description": "Menguji respons RFC 7807 saat ID buku yang diminta tidak ada dalam basis data."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 404 Not Found\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "pm.test(\"Content-Type is application/problem+json\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"RFC 7807 Not Found structure\", function () {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.title).to.eql(\"Not Found\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. POST buku",
+      "item": [
+        {
+          "name": "6.1 POST Tambah Buku Baru",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"isbn\": \"978-602-03-TEST-{{$randomInt}}\",\n    \"judul\": \"Arsitektur REST API & Concurrency\",\n    \"penulis\": \"Senior Backend Del\",\n    \"penerbit\": \"Del Publishing\",\n    \"tahun_terbit\": 2024,\n    \"kategori_id\": {{category_id}},\n    \"stok\": 5,\n    \"sinopsis\": \"Buku acuan perancangan sistem RESTful modern berkecepatan tinggi.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bukus",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bukus"
+              ]
+            },
+            "description": "Menambahkan koleksi buku baru, memverifikasi header Location, dan menyimpan ID buku baru ke variabel book_id."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Location header exists\", function () {",
+                  "    pm.expect(pm.response.headers.has(\"Location\")).to.be.true;",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Book ID saved to variables\", function () {",
+                  "    pm.expect(json.data.id).to.be.a(\"number\");",
+                  "    pm.environment.set(\"book_id\", json.data.id);",
+                  "    pm.collectionVariables.set(\"book_id\", json.data.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.2 POST Tambah Buku Validasi Gagal (422 RFC 7807)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"isbn\": \"978-602-03-8800-1\",\n    \"judul\": \"Judul Duplikat ISBN\",\n    \"penulis\": \"Penulis\",\n    \"penerbit\": \"Penerbit\",\n    \"tahun_terbit\": 2024,\n    \"kategori_id\": 1,\n    \"stok\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bukus",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bukus"
+              ]
+            },
+            "description": "Menguji penolakan validasi pada ISBN yang sudah terdaftar sebelumnya (ISBN seeder buku 1)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 422 Unprocessable Content\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "pm.test(\"Content-Type is application/problem+json\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Validation error specifies isbn\", function () {",
+                  "    pm.expect(json.status).to.eql(422);",
+                  "    pm.expect(json.title).to.eql(\"Unprocessable Content\");",
+                  "    pm.expect(json.errors).to.have.property(\"isbn\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. PUT buku",
+      "item": [
+        {
+          "name": "7.1 PUT Ganti Buku Penuh (Full Replacement)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"isbn\": \"978-602-03-PUT-{{$randomInt}}\",\n    \"judul\": \"Arsitektur REST API Modern (Revisi Penuh)\",\n    \"penulis\": \"Senior Backend Del PhD\",\n    \"penerbit\": \"Del Press International\",\n    \"tahun_terbit\": 2024,\n    \"kategori_id\": {{category_id}},\n    \"stok\": 8,\n    \"sinopsis\": \"Edisi revisi penuh komprehensif penggantian total.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bukus/{{book_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bukus",
+                "{{book_id}}"
+              ]
+            },
+            "description": "Menggantikan seluruh representasi data buku uji hasil POST 6.1 secara penuh (PUT)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Data updated completely\", function () {",
+                  "    pm.expect(json.data.judul).to.include(\"Revisi Penuh\");",
+                  "    pm.expect(json.data.stok).to.eql(8);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.2 PUT Ganti Buku Field Tidak Lengkap (422 RFC 7807)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"judul\": \"Judul Baru Saja Tanpa Atribut Wajib Lain\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bukus/{{book_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bukus",
+                "{{book_id}}"
+              ]
+            },
+            "description": "Membuktikan semantik PUT: menolak penggantian representasi jika field wajib tidak dikirimkan."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 422 Unprocessable Content\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Missing attributes reported\", function () {",
+                  "    pm.expect(json.errors).to.have.property(\"isbn\");",
+                  "    pm.expect(json.errors).to.have.property(\"penulis\");",
+                  "    pm.expect(json.errors).to.have.property(\"stok\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. PATCH buku",
+      "item": [
+        {
+          "name": "8.1 PATCH Pembaruan Parsial Buku",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"stok\": 12\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bukus/{{book_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bukus",
+                "{{book_id}}"
+              ]
+            },
+            "description": "Hanya memperbarui atribut stok tanpa harus mengirim atribut wajib lainnya (PATCH semantik parsial)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Stock updated while title preserved\", function () {",
+                  "    pm.expect(json.data.stok).to.eql(12);",
+                  "    pm.expect(json.data.judul).to.include(\"Revisi Penuh\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. DELETE buku",
+      "item": [
+        {
+          "name": "9.1 DELETE Buku Tanpa Pinjaman Aktif (204 No Content)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/bukus/{{book_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bukus",
+                "{{book_id}}"
+              ]
+            },
+            "description": "Menghapus buku uji baru (hasil POST 6.1) yang tidak memiliki peminjaman aktif. Mengembalikan 204 No Content tanpa body."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 204 No Content\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "pm.test(\"Response body is empty\", function () {",
+                  "    pm.expect(pm.response.text()).to.be.empty;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "9.2 DELETE Buku Dengan Pinjaman Aktif (409 Conflict)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/bukus/{{active_loan_book_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bukus",
+                "{{active_loan_book_id}}"
+              ]
+            },
+            "description": "Menguji penolakan penghapusan pada buku ID active_loan_book_id (ID 3) hasil seeder yang memiliki rekam transaksi peminjaman aktif dipinjam (409 Conflict RFC 7807)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 409 Conflict\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test(\"Content-Type is application/problem+json\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Conflict indicates active loans\", function () {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.title).to.eql(\"Conflict\");",
+                  "    pm.expect(json.detail).to.include(\"peminjaman aktif\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10. GET peminjaman",
+      "item": [
+        {
+          "name": "10.1 GET Daftar Sirkulasi Peminjaman",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/peminjamans?status=dipinjam&per_page=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "peminjamans"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "dipinjam"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Mendapatkan daftar transaksi peminjaman aktif terpaginasi dengan relasi buku dan kategori."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Eager loaded relations verified\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    if (json.data.length > 0) {",
+                  "        pm.expect(json.data[0]).to.have.property(\"buku\");",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11. POST peminjaman sukses",
+      "item": [
+        {
+          "name": "11.1 POST Pinjam Buku Sukses (201 Created)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"buku_id\": 2,\n    \"nim_peminjam\": \"12S24012\",\n    \"nama_peminjam\": \"Choqy Pananda Sirait\",\n    \"durasi_hari\": 7\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/peminjamans",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "peminjamans"
+              ]
+            },
+            "description": "Transaksi atomik peminjaman buku ID 2 (stok awal 1) oleh NIM 12S24012 dengan penguncian lockForUpdate. Stok berkurang menjadi 0 dan ID disimpan ke loan_id."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Location header exists\", function () {",
+                  "    pm.expect(pm.response.headers.has(\"Location\")).to.be.true;",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Loan record created and stock decremented\", function () {",
+                  "    pm.expect(json.data.buku_id).to.eql(2);",
+                  "    pm.expect(json.data.nim_peminjam).to.eql(\"12S24012\");",
+                  "    pm.expect(json.data.status).to.eql(\"dipinjam\");",
+                  "    pm.expect(json.data.kode_pinjam).to.include(\"PJ-\");",
+                  "    pm.expect(json.data._links).to.have.property(\"kembalikan_buku\");",
+                  "    pm.environment.set(\"loan_id\", json.data.id);",
+                  "    pm.collectionVariables.set(\"loan_id\", json.data.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "12. Peminjaman dengan stok habis",
+      "item": [
+        {
+          "name": "12.1 POST Pinjam Buku Stok Habis (422 RFC 7807)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"buku_id\": 1,\n    \"nim_peminjam\": \"12S24012\",\n    \"nama_peminjam\": \"Choqy Pananda Sirait\",\n    \"durasi_hari\": 7\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/peminjamans",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "peminjamans"
+              ]
+            },
+            "description": "Menguji pembatalan transaksi ACID ketika meminjam buku ID 1 yang stoknya bernilai nol (422 Unprocessable Content RFC 7807)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 422 Unprocessable Content\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "pm.test(\"Content-Type is application/problem+json\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"RFC 7807 reports out of stock\", function () {",
+                  "    pm.expect(json.status).to.eql(422);",
+                  "    pm.expect(json.title).to.eql(\"Unprocessable Content\");",
+                  "    pm.expect(json.detail).to.include(\"telah habis\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "13. Peminjaman duplikat",
+      "item": [
+        {
+          "name": "13.1 POST Peminjaman Buku Sama Ganda (409 Conflict)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"buku_id\": 3,\n    \"nim_peminjam\": \"12S24001\",\n    \"nama_peminjam\": \"Lamhot Simanjuntak\",\n    \"durasi_hari\": 7\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/peminjamans",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "peminjamans"
+              ]
+            },
+            "description": "Menguji penolakan transaksi peminjaman ganda (409 Conflict). Mahasiswa NIM 12S24001 telah memiliki transaksi peminjaman aktif pada buku ID 3 (stok 5 > 0 hasil seeder). Sistem mengevaluasi stok masih tersedia, lalu menolak peminjaman karena mahasiswa belum mengembalikan buku tersebut."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 409 Conflict\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test(\"Content-Type is application/problem+json\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"RFC 7807 reports active loan conflict\", function () {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.title).to.eql(\"Conflict\");",
+                  "    pm.expect(json.detail).to.include(\"masih meminjam buku ini\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "14. PATCH pengembalian",
+      "item": [
+        {
+          "name": "14.1 PATCH Pengembalian Buku (Sukses)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/peminjamans/{{loan_id}}/kembalikan",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "peminjamans",
+                "{{loan_id}}",
+                "kembalikan"
+              ]
+            },
+            "description": "Mengembalikan buku ID loan_id secara atomik, mengubah status menjadi dikembalikan, mengisi tanggal_kembali, dan memulihkan stok buku."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Status updated to dikembalikan and date stamped\", function () {",
+                  "    pm.expect(json.data.status).to.eql(\"dikembalikan\");",
+                  "    pm.expect(json.data.tanggal_kembali).to.not.be.null;",
+                  "    pm.expect(json.data._links).to.not.have.property(\"kembalikan_buku\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "15. Pengembalian duplikat",
+      "item": [
+        {
+          "name": "15.1 PATCH Pengembalian Duplikat (409 Conflict)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/peminjamans/{{loan_id}}/kembalikan",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "peminjamans",
+                "{{loan_id}}",
+                "kembalikan"
+              ]
+            },
+            "description": "Menguji idempotensi transaksi: pengembalian kedua pada transaksi yang sama ditolak (409 Conflict) dan stok tidak bertambah dua kali."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 409 Conflict\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test(\"Content-Type is application/problem+json\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Conflict indicates loan already returned\", function () {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.title).to.eql(\"Conflict\");",
+                  "    pm.expect(json.detail).to.include(\"sudah pernah dikembalikan\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "16. OpenLibrary Consumer",
+      "item": [
+        {
+          "name": "16.1 GET Referensi Metadata Eksternal Buku",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/bukus/{{reference_book_id}}/referensi-eksternal",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bukus",
+                "{{reference_book_id}}",
+                "referensi-eksternal"
+              ]
+            },
+            "description": "Mengambil metadata eksternal buku hasil seeder (reference_book_id) dari OpenLibrary berdasarkan nomor ISBN menggunakan Laravel HTTP Client timeout 8 detik."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"OpenLibrary synchronization structure is valid\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data).to.have.property(\"status_sinkronisasi\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "17. GitHub REST API exercise",
+      "item": [
+        {
+          "name": "17.1 GET GitHub Authenticated User (Exercise)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{github_token}}"
+              },
+              {
+                "key": "User-Agent",
+                "value": "SIPUS-Del-Tester"
+              },
+              {
+                "key": "Accept",
+                "value": "application/vnd.github.v3+json"
+              }
+            ],
+            "url": {
+              "raw": "https://api.github.com/user",
+              "protocol": "https",
+              "host": [
+                "api",
+                "github",
+                "com"
+              ],
+              "path": [
+                "user"
+              ]
+            },
+            "description": "Latihan pemanggilan API pihak ketiga GitHub REST API v3. Dikosongkan secara default agar aman dan ditandai skip jika token tidak diisi oleh pengguna."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var token = pm.variables.get(\"github_token\");",
+                  "if (!token || token.trim() === \"\" || token.includes(\"PLACEHOLDER\")) {",
+                  "    pm.test.skip(\"GitHub token tidak dikonfigurasi (lewati pengujian)\", function () {});",
+                  "} else {",
+                  "    pm.test(\"Status code is 200 OK\", function () {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "    var json = pm.response.json();",
+                  "    pm.test(\"GitHub authenticated user response is valid\", function () {",
+                  "        pm.expect(json).to.have.property(\"login\");",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "18. Logout Pustakawan",
+      "item": [
+        {
+          "name": "18.1 POST Logout (Revoke Token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Mencabut token aktif pustakawan (Sanctum revocation) di akhir pengujian."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Token revoked successfully\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "18.2 GET Me Setelah Logout Ditolak (401 RFC 7807)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Membuktikan bahwa Bearer Token yang telah dicabut tidak dapat lagi digunakan (401 Unauthorized RFC 7807)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"RFC 7807 indicates revoked token\", function () {",
+                  "    pm.expect(json.status).to.eql(401);",
+                  "    pm.expect(json.title).to.eql(\"Unauthorized\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

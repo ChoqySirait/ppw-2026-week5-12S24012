@@ -100,7 +100,7 @@ class OpenLibraryConsumerTest extends TestCase
     }
 
     /**
-     * Uji penanganan saat koneksi ke OpenLibrary mengalami timeout (ConnectionException).
+     * Uji penanganan saat koneksi ke OpenLibrary mengalami timeout (HTTP 504 RFC 7807).
      */
     public function test_external_reference_timeout_handled_gracefully(): void
     {
@@ -114,19 +114,17 @@ class OpenLibraryConsumerTest extends TestCase
 
         $response = $this->getJson("/api/v1/bukus/{$this->buku->id}/referensi-eksternal");
 
-        $response->assertStatus(200);
+        $response->assertStatus(504);
+        $this->assertEquals('application/problem+json', $response->headers->get('Content-Type'));
         $response->assertJson([
-            'success' => true,
-            'data' => [
-                'status_sinkronisasi' => 'timeout',
-                'metadata' => null,
-            ],
+            'title' => 'Gateway Timeout',
+            'status' => 504,
         ]);
-        $this->assertStringContainsString('timeout', $response->json('data.pesan'));
+        $this->assertStringContainsString('timeout', strtolower($response->json('detail')));
     }
 
     /**
-     * Uji penanganan saat OpenLibrary mengalami gangguan upstream (HTTP 500/502).
+     * Uji penanganan saat OpenLibrary mengalami gangguan upstream (HTTP 502 RFC 7807).
      */
     public function test_external_reference_upstream_server_error_handled_gracefully(): void
     {
@@ -140,13 +138,11 @@ class OpenLibraryConsumerTest extends TestCase
 
         $response = $this->getJson("/api/v1/bukus/{$this->buku->id}/referensi-eksternal");
 
-        $response->assertStatus(200);
+        $response->assertStatus(502);
+        $this->assertEquals('application/problem+json', $response->headers->get('Content-Type'));
         $response->assertJson([
-            'success' => true,
-            'data' => [
-                'status_sinkronisasi' => 'upstream_error',
-                'metadata' => null,
-            ],
+            'title' => 'Bad Gateway',
+            'status' => 502,
         ]);
     }
 

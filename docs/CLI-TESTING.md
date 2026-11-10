@@ -319,8 +319,8 @@ curl.exe -i -X POST http://localhost:8000/api/v1/peminjamans `
 ```
 *Ekspektasi:* HTTP 422 Unprocessable Content RFC 7807: *"Stok buku telah habis. Peminjaman dibatalkan."*
 
-### 6.4 POST Peminjaman Gagal: Pinjaman Duplikat (Buku ID 2 oleh NIM 12S24012)
-Kirimkan permintaan yang sama untuk buku ID 2 yang masih aktif dipinjam oleh NIM tersebut:
+### 6.4 POST Peminjaman Gagal: Pinjaman Duplikat (Buku ID 3 oleh NIM 12S24001)
+Kirimkan permintaan peminjaman untuk buku ID 3 yang masih aktif dipinjam oleh mahasiswa NIM 12S24001 hasil seeder (buku ID 3 memiliki sisa stok 5 > 0, sehingga lolos validasi stok dan mengevaluasi aturan pinjaman ganda):
 ```powershell
 curl.exe -i -X POST http://localhost:8000/api/v1/peminjamans `
   -H "Authorization: Bearer $TOKEN" `
@@ -328,14 +328,18 @@ curl.exe -i -X POST http://localhost:8000/api/v1/peminjamans `
   -H "Accept: application/json" `
   -d @"
 {
-    "buku_id": 2,
-    "nim_peminjam": "12S24012",
-    "nama_peminjam": "Choqy Pananda Sirait",
+    "buku_id": 3,
+    "nim_peminjam": "12S24001",
+    "nama_peminjam": "Lamhot Simanjuntak",
     "durasi_hari": 7
 }
 "@
 ```
-*Ekspektasi:* HTTP 409 Conflict RFC 7807: *"Mahasiswa dengan NIM 12S24012 masih meminjam buku ini dan belum mengembalikannya."*
+*Ekspektasi:* HTTP 409 Conflict RFC 7807: *"Mahasiswa dengan NIM 12S24001 masih meminjam buku ini dan belum mengembalikannya."*
+
+> [!NOTE]
+> **Catatan Concurrency Locking (MySQL 8.0 InnoDB vs SQLite)**:
+> Pada demonstrasi konkurensi nyata, sistem wajib dijalankan di atas mesin MySQL 8.0 dengan storage engine InnoDB (misalnya pada Laragon lokal). Klausul `lockForUpdate()` mengeksekusi `SELECT ... FOR UPDATE` pada tingkat baris (*Row-Level Pessimistic Lock*) InnoDB sehingga transaksi kedua akan diblokir (*blocking wait*) sampai transaksi pertama selesai melakukan `COMMIT` atau `ROLLBACK`. Pengujian otomatis PHPUnit menggunakan SQLite In-Memory untuk kecepatan pengujian fungsional terisolasi, namun verifikasi konkurensi fisik mutlak membutuhkan InnoDB.
 
 ### 6.5 PATCH Pengembalian Buku Sukses
 ```powershell
@@ -358,12 +362,14 @@ curl.exe -i -X PATCH "http://localhost:8000/api/v1/peminjamans/$LOAN_ID/kembalik
 
 ## 7. PENGUJIAN REST SERVICE CONSUMER (OPENLIBRARY)
 
-### 7.1 Sinkronisasi Metadata Eksternal Berdasarkan ISBN Buku 2
+### 7.1 Sinkronisasi Metadata Eksternal (reference_book_id)
+Gunakan buku seeder terpisah (misalnya ID 2) yang tidak dihapus saat pengujian CRUD:
 ```powershell
-curl.exe -i -X GET http://localhost:8000/api/v1/bukus/2/referensi-eksternal `
+$REFERENCE_BOOK_ID = 2
+curl.exe -i -X GET "http://localhost:8000/api/v1/bukus/$REFERENCE_BOOK_ID/referensi-eksternal" `
   -H "Accept: application/json"
 ```
-*Ekspektasi:* HTTP 200 OK. Menyajikan metadata hasil sinkronisasi OpenLibrary (`jumlah_halaman`, `penerbit`, dll.) secara aman dengan batas timeout 8 detik.
+*Ekspektasi:* HTTP 200 OK. Menyajikan metadata hasil sinkronisasi OpenLibrary (`jumlah_halaman`, `penerbit`, dll.) secara aman dengan batas timeout 8 detik, atau informasi `fallback_lokal` saat metadata ISBN tidak ditemukan pada OpenLibrary.
 
 ---
 
@@ -393,7 +399,7 @@ curl.exe -i -X GET http://localhost:8000/api/v1/auth/me `
 Seluruh skenario pengujian unit dan fungsional dapat dijalankan secara terisolasi menggunakan SQLite In-Memory tanpa mengubah data lokal:
 
 ```powershell
-# Menjalankan seluruh test suite (45 tests, 230 assertions)
+# Menjalankan seluruh test suite (45 tests, 232 assertions)
 php artisan test
 
 # Menjalankan pengujian per modul

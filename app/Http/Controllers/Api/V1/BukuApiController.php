@@ -116,10 +116,10 @@ class BukuApiController extends Controller
         $currentYear = (int) date('Y');
 
         $validated = $request->validate([
-            'isbn' => 'required|string|max:30|unique:bukus,isbn',
+            'isbn' => 'required|string|max:20|unique:bukus,isbn',
             'judul' => 'required|string|min:3|max:255',
             'penulis' => 'required|string|max:150',
-            'penerbit' => 'required|string|max:150',
+            'penerbit' => 'required|string|max:100',
             'tahun_terbit' => "required|integer|min:1900|max:{$currentYear}",
             'kategori_id' => 'required|exists:kategoris,id',
             'stok' => 'required|integer|min:0',
@@ -152,10 +152,10 @@ class BukuApiController extends Controller
 
         // PUT mewajibkan seluruh atribut utama dikirimkan
         $validated = $request->validate([
-            'isbn' => "required|string|max:30|unique:bukus,isbn,{$buku->id}",
+            'isbn' => "required|string|max:20|unique:bukus,isbn,{$buku->id}",
             'judul' => 'required|string|min:3|max:255',
             'penulis' => 'required|string|max:150',
-            'penerbit' => 'required|string|max:150',
+            'penerbit' => 'required|string|max:100',
             'tahun_terbit' => "required|integer|min:1900|max:{$currentYear}",
             'kategori_id' => 'required|exists:kategoris,id',
             'stok' => 'required|integer|min:0',
@@ -186,10 +186,10 @@ class BukuApiController extends Controller
 
         // PATCH mengizinkan pembaruan sebagian menggunakan sometimes
         $validated = $request->validate([
-            'isbn' => "sometimes|required|string|max:30|unique:bukus,isbn,{$buku->id}",
+            'isbn' => "sometimes|required|string|max:20|unique:bukus,isbn,{$buku->id}",
             'judul' => 'sometimes|required|string|min:3|max:255',
             'penulis' => 'sometimes|required|string|max:150',
-            'penerbit' => 'sometimes|required|string|max:150',
+            'penerbit' => 'sometimes|required|string|max:100',
             'tahun_terbit' => "sometimes|required|integer|min:1900|max:{$currentYear}",
             'kategori_id' => 'sometimes|required|exists:kategoris,id',
             'stok' => 'sometimes|required|integer|min:0',
@@ -233,7 +233,7 @@ class BukuApiController extends Controller
      */
     public function referensiEksternal(int $id): JsonResponse
     {
-        $buku = Buku::find($id);
+        $buku = Buku::with('kategori')->find($id);
 
         if (! $buku) {
             abort(404, "Buku dengan ID {$id} tidak ditemukan.");
@@ -250,6 +250,14 @@ class BukuApiController extends Controller
                 'status_sinkronisasi' => 'isbn_invalid',
                 'pesan' => 'Format ISBN buku tidak valid untuk pencarian eksternal.',
                 'metadata' => null,
+                'fallback_lokal' => [
+                    'judul' => $buku->judul,
+                    'penulis' => $buku->penulis,
+                    'penerbit' => $buku->penerbit,
+                    'tahun_terbit' => (int) $buku->tahun_terbit,
+                    'kategori' => $buku->kategori?->nama_kategori,
+                    'stok' => (int) $buku->stok,
+                ],
             ], 'ISBN buku tidak valid.', 200);
         }
 
@@ -264,31 +272,25 @@ class BukuApiController extends Controller
                     'status_sinkronisasi' => 'not_found',
                     'pesan' => 'Metadata buku tidak ditemukan pada repositori OpenLibrary.',
                     'metadata' => null,
+                    'fallback_lokal' => [
+                        'judul' => $buku->judul,
+                        'penulis' => $buku->penulis,
+                        'penerbit' => $buku->penerbit,
+                        'tahun_terbit' => (int) $buku->tahun_terbit,
+                        'kategori' => $buku->kategori?->nama_kategori,
+                        'stok' => (int) $buku->stok,
+                    ],
                 ], 'Metadata eksternal tidak ditemukan.', 200);
             }
 
             if (! $response->successful()) {
-                return $this->successResponse([
-                    'buku_id' => $buku->id,
-                    'isbn' => $buku->isbn,
-                    'clean_isbn' => $cleanIsbn,
-                    'status_sinkronisasi' => 'upstream_error',
-                    'pesan' => 'Layanan OpenLibrary mengembalikan status error: '.$response->status(),
-                    'metadata' => null,
-                ], 'Layanan eksternal mengalami kendala sementara.', 200);
+                abort(502, 'Layanan eksternal OpenLibrary mengembalikan status galat: '.$response->status());
             }
 
             $data = $response->json();
 
             if (! is_array($data)) {
-                return $this->successResponse([
-                    'buku_id' => $buku->id,
-                    'isbn' => $buku->isbn,
-                    'clean_isbn' => $cleanIsbn,
-                    'status_sinkronisasi' => 'invalid_response',
-                    'pesan' => 'Format respons dari OpenLibrary tidak sesuai spesifikasi.',
-                    'metadata' => null,
-                ], 'Format respons eksternal tidak valid.', 200);
+                abort(502, 'Format respons dari layanan eksternal OpenLibrary tidak sesuai spesifikasi.');
             }
 
             $metadata = [
@@ -311,23 +313,13 @@ class BukuApiController extends Controller
                 'metadata' => $metadata,
             ], 'Metadata eksternal berhasil diambil.');
         } catch (ConnectionException $e) {
-            return $this->successResponse([
-                'buku_id' => $buku->id,
-                'isbn' => $buku->isbn,
-                'clean_isbn' => $cleanIsbn,
-                'status_sinkronisasi' => 'timeout',
-                'pesan' => 'Koneksi ke OpenLibrary melebihi batas waktu (timeout 8 detik).',
-                'metadata' => null,
-            ], 'Gagal terhubung ke layanan eksternal (timeout).', 200);
+            abort(504, 'Koneksi ke layanan eksternal OpenLibrary melebihi batas waktu (timeout 8 detik).');
         } catch (Throwable $e) {
-            return $this->successResponse([
-                'buku_id' => $buku->id,
-                'isbn' => $buku->isbn,
-                'clean_isbn' => $cleanIsbn,
-                'status_sinkronisasi' => 'failed',
-                'pesan' => 'Terjadi kesalahan sistem saat menghubungi OpenLibrary: '.$e->getMessage(),
-                'metadata' => null,
-            ], 'Pencarian metadata eksternal gagal diproses.', 200);
+            if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+                throw $e;
+            }
+
+            abort(500, 'Terjadi kendala sistem saat memproses referensi eksternal.');
         }
     }
 }
