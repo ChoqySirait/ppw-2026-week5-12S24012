@@ -721,93 +721,29 @@ Seluruh fungsionalitas sistem telah diuji menggunakan rangkaian pengujian otomat
 
 Di bawah ini disediakan placeholder terstruktur untuk menyimpan tangkapan layar pengujian pada direktori `docs/screenshots/`:
 
-#### Kelompok 1: SOAP XML Provider & SOAP Faults
-*Bukti kontrak WSDL, verifikasi bebas pustaka aktif/tidak aktif, dan SOAP Fault saat format XML/NIM salah.*
+<img width="1917" height="1015" alt="image" src="https://github.com/user-attachments/assets/ffcfea27-7230-4ba1-bd2b-caf9a91421f5" />
 
-| Pengujian | Tangkapan Layar Respons Postman |
-| :--- | :--- |
-| **Kontrak WSDL (`GET /soap/sipus.wsdl`)** | ![Kontrak WSDL](docs/screenshots/01-soap-wsdl.png) |
-| **Clearance Sukses Bebas Pustaka (`is_cleared: true`)** | ![SOAP Clearance True](docs/screenshots/02-soap-clearance-true.png) |
-| **Clearance Ada Pinjaman Aktif (`is_cleared: false`)** | ![SOAP Clearance False](docs/screenshots/03-soap-clearance-false.png) |
-| **SOAP Fault: Malformed XML (HTTP 400)** | ![SOAP Fault Malformed XML](docs/screenshots/04-soap-fault-malformed.png) |
-| **SOAP Fault: Missing / Empty NIM Element** | ![SOAP Fault Missing NIM](docs/screenshots/05-soap-fault-missing-nim.png) |
+<img width="1917" height="1016" alt="image" src="https://github.com/user-attachments/assets/40ca4954-d89d-4b31-bf90-f44f163d39d2" />
 
----
+<img width="1912" height="1025" alt="image" src="https://github.com/user-attachments/assets/de55e024-7d2d-4341-bef5-37d8d9700ea9" />
 
-#### Kelompok 2: Autentikasi Sanctum Bearer Token & Profil Pustakawan
-*Bukti penerbitan Bearer Token, penolakan kredensial salah, dan akses profil Me.*
+<img width="1917" height="1020" alt="image" src="https://github.com/user-attachments/assets/139d4347-f814-4794-911e-fbe826263db7" />
 
-| Pengujian | Tangkapan Layar Respons Postman |
-| :--- | :--- |
-| **Login Sukses Menerbitkan Token (HTTP 200)** | ![API Login Sukses](docs/screenshots/06-api-login-success.png) |
-| **Login Gagal Password Salah (HTTP 401 RFC 7807)** | ![API Login Password Salah](docs/screenshots/07-api-login-invalid-password.png) |
-| **Akses Profil Pustakawan Me (HTTP 200)** | ![API Me Profil](docs/screenshots/08-api-me-success.png) |
+<img width="1917" height="1018" alt="image" src="https://github.com/user-attachments/assets/3e66db15-4e05-4f8b-9eea-bfc0f24e8881" />
+<img width="1917" height="1021" alt="image" src="https://github.com/user-attachments/assets/faa65c35-ee73-4b8e-b163-f7882129d842" />
+<img width="1917" height="1020" alt="image" src="https://github.com/user-attachments/assets/1ff63ba9-44df-48e9-a1f2-e03e2731570c" />
+<img width="1917" height="1018" alt="image" src="https://github.com/user-attachments/assets/b4df6bf2-987c-447a-87db-255dca6a23a9" />
+<img width="1917" height="1021" alt="image" src="https://github.com/user-attachments/assets/e85b9241-55ee-48cf-9071-15848f75ee39" />
+<img width="1917" height="1025" alt="image" src="https://github.com/user-attachments/assets/b3ea1eda-2ef2-43cf-8707-8a6a1f9d8d86" />
+<img width="1917" height="1015" alt="image" src="https://github.com/user-attachments/assets/7095b64c-d14d-4318-b6af-c9502d2bf26a" />
+<img width="1916" height="1023" alt="image" src="https://github.com/user-attachments/assets/d24ae9c2-8f29-4353-b29b-323fcf32e923" />
+<img width="1917" height="1020" alt="image" src="https://github.com/user-attachments/assets/cd08b366-2bfc-443d-9232-60acfd197ba2" />
+<img width="1917" height="1020" alt="image" src="https://github.com/user-attachments/assets/2b9ca302-3348-4ac3-a7fc-c888fb60c016" />
+<img width="1917" height="1017" alt="image" src="https://github.com/user-attachments/assets/9046ed6d-58ba-46ee-81e5-2b7046a9e7b0" />
+<img width="1917" height="1017" alt="image" src="https://github.com/user-attachments/assets/34e9383f-a9f4-42ad-8a71-e6d4e6254dca" />
+<img width="1917" height="1016" alt="image" src="https://github.com/user-attachments/assets/48b3f996-bf22-4c62-970d-f5ead20ffc40" />
+<img width="1917" height="1022" alt="image" src="https://github.com/user-attachments/assets/6041d3d3-0c8a-4972-b516-aa877617c2cc" />
 
----
-
-#### Kelompok 3: Penelusuran Katalog Buku, Paginasi, Filter, & HATEOAS
-*Bukti respons JSON katalog, filter kategori, penomoran halaman, dan hipermedia.*
-
-| Pengujian | Tangkapan Layar Respons Postman |
-| :--- | :--- |
-| **GET Katalog Berhalaman & Filter Pencarian** | ![Katalog Berhalaman](docs/screenshots/09-get-bukus-pagination.png) |
-| **GET Rincian Buku ID 2 dengan Tautan HATEOAS** | ![Detail Buku HATEOAS](docs/screenshots/10-get-buku-detail-hateoas.png) |
-| **GET Detail Buku Tidak Ditemukan (HTTP 404 RFC 7807)** | ![Buku 404 Not Found](docs/screenshots/11-get-buku-404-rfc7807.png) |
-
----
-
-#### Kelompok 4: Operasi Mutasi Koleksi Buku (POST, PUT, PATCH, DELETE)
-*Bukti penambahan buku dengan Header Location, penggantian utuh vs parsial, dan penghapusan terkontrol.*
-
-| Pengujian | Tangkapan Layar Respons Postman |
-| :--- | :--- |
-| **POST Tambah Buku Baru (HTTP 201 + Header Location)** | ![POST Buku 201 Created](docs/screenshots/12-post-buku-201-location.png) |
-| **POST Tambah Buku Gagal Validasi ISBN Duplikat (HTTP 422)** | ![POST Buku 422 Validasi](docs/screenshots/13-post-buku-422-validation.png) |
-| **PUT Penggantian Representasi Utuh (HTTP 200)** | ![PUT Buku Penuh](docs/screenshots/14-put-buku-full-replacement.png) |
-| **PATCH Pembaruan Parsial Atribut Stok (HTTP 200)** | ![PATCH Buku Parsial](docs/screenshots/15-patch-buku-partial.png) |
-| **DELETE Buku Tanpa Pinjaman Aktif (HTTP 204 No Content)** | ![DELETE Buku 204](docs/screenshots/16-delete-buku-204-no-content.png) |
-| **DELETE Buku Dengan Pinjaman Aktif Ditolak (HTTP 409 Conflict)** | ![DELETE Buku 409 Konflik](docs/screenshots/17-delete-buku-409-conflict.png) |
-
----
-
-#### Kelompok 5: Transaksi Sirkulasi Peminjaman ACID
-*Bukti transaksi atomik peminjaman sukses (stok berkurang), penolakan stok habis, dan pinjam ganda.*
-
-| Pengujian | Tangkapan Layar Respons Postman |
-| :--- | :--- |
-| **POST Pinjam Buku Sukses (HTTP 201 Created - Stok -1)** | ![Pinjam Buku Sukses](docs/screenshots/18-post-peminjaman-201-success.png) |
-| **POST Pinjam Buku Stok Habis (HTTP 422 RFC 7807)** | ![Pinjam Stok Habis 422](docs/screenshots/19-post-peminjaman-422-out-of-stock.png) |
-| **POST Pinjam Duplikat Mahasiswa Sama (HTTP 409 Conflict)** | ![Pinjam Duplikat 409](docs/screenshots/20-post-peminjaman-409-duplicate.png) |
-
----
-
-#### Kelompok 6: Pengembalian Buku & Pemulihan Stok Fisik
-*Bukti pengembalian sirkulasi, pemulihan stok atomik +1, dan penolakan pengembalian berulang.*
-
-| Pengujian | Tangkapan Layar Respons Postman |
-| :--- | :--- |
-| **PATCH Pengembalian Buku Sukses (HTTP 200 - Stok +1)** | ![Pengembalian Sukses](docs/screenshots/21-patch-pengembalian-200-success.png) |
-| **PATCH Pengembalian Duplikat Ditolak (HTTP 409 Conflict)** | ![Pengembalian Duplikat 409](docs/screenshots/22-patch-pengembalian-409-duplicate.png) |
-
----
-
-#### Kelompok 7: Integrasi Service Consumer OpenLibrary
-*Bukti sinkronisasi metadata eksternal via HTTP Client dan penanganan fallback saat data tidak ditemukan.*
-
-| Pengujian | Tangkapan Layar Respons Postman |
-| :--- | :--- |
-| **GET Sinkronisasi Metadata Eksternal Buku Berhasil** | ![OpenLibrary Sinkron](docs/screenshots/23-openlibrary-sync-success.png) |
-| **GET Metadata Fallback Saat ISBN Tidak Terdaftar Global** | ![OpenLibrary Fallback](docs/screenshots/24-openlibrary-fallback.png) |
-
----
-
-#### Kelompok 8: Pencabutan Token (*Logout*) & Penolakan Akses
-*Bukti pencabutan Bearer Token pada basis data dan pembuktian token tidak lagi dapat digunakan.*
-
-| Pengujian | Tangkapan Layar Respons Postman |
-| :--- | :--- |
-| **POST Logout Berhasil Mencabut Token (HTTP 200)** | ![Logout Revoke Token](docs/screenshots/25-post-logout-success.png) |
-| **GET Me Menggunakan Token Lama Ditolak (HTTP 401 RFC 7807)** | ![Akses Setelah Logout 401](docs/screenshots/26-get-me-after-logout-401.png) |
 
 ---
 
